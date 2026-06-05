@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Castelfranco Veneto – Mappa Turistica</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; width: 100%; overflow: hidden; }
+
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&display=swap');
+
+    :root {
+      --parchment:    #f2e8c9;
+      --parchment-dk: #d9c89a;
+      --ink:          #2c1a0e;
+      --ink-lt:       #4a2e14;
+      --gold:         #b8860b;
+      --gold-lt:      #daa520;
+      --red-heraldic: #8b1a1a;
+      --stone:        #7a6a52;
+      --stone-lt:     #a89070;
+      --shadow:       rgba(44,26,14,0.45);
+    }
+
+    #map {
+      position: absolute; inset: 0;
+      z-index: 1;
+      filter: sepia(55%) saturate(70%) brightness(0.92) contrast(1.05);
+    }
+
+    #header {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 900;
+      background: linear-gradient(135deg, var(--ink) 0%, var(--ink-lt) 50%, var(--ink) 100%);
+      border-bottom: 3px solid var(--gold);
+      padding: 8px 14px 6px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 10px var(--shadow);
+    }
+    #header h1 {
+      font-family: 'Cinzel Decorative', 'Cinzel', serif;
+      font-size: clamp(13px, 4vw, 22px);
+      color: var(--gold-lt);
+      text-shadow: 0 0 8px rgba(184,134,11,0.6), 1px 1px 2px #000;
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+    #header .crown { font-size: 1.3em; margin: 0 8px; }
+
+    .custom-marker {
+      width: 36px; height: 36px;
+      background: radial-gradient(circle at 40% 35%, var(--gold-lt), var(--gold));
+      border: 2.5px solid var(--ink);
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      box-shadow: 2px 2px 6px var(--shadow);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      position: relative;
+    }
+    .custom-marker span {
+      transform: rotate(45deg);
+      font-size: 14px;
+      line-height: 1;
+      color: var(--ink);
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .custom-marker:hover { filter: brightness(1.15); }
+
+    #popup-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(20,10,5,0.88);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(3px);
+    }
+    #popup-overlay.open { display: flex; }
+
+    #popup-card {
+      background: var(--parchment);
+      width: 100%; max-width: 640px;
+      height: 92vh;
+      border-radius: 16px 16px 0 0;
+      border-top: 4px solid var(--gold);
+      border-left: 2px solid var(--gold);
+      border-right: 2px solid var(--gold);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: 0 -8px 30px var(--shadow);
+      animation: slideUp .3s ease-out;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    #popup-drag {
+      width: 40px; height: 5px;
+      background: var(--stone-lt);
+      border-radius: 3px;
+      margin: 10px auto 4px;
+      flex-shrink: 0;
+    }
+
+    #popup-gallery {
+      width: 100%; height: 200px; flex-shrink: 0;
+      position: relative; overflow: hidden;
+      background: var(--ink);
+    }
+    #popup-gallery img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    #popup-gallery img.active { display: block; }
+    #popup-gallery .gallery-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: rgba(44,26,14,0.6); color: var(--gold-lt);
+      border: none; border-radius: 50%;
+      width: 32px; height: 32px;
+      font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #popup-gallery .gallery-nav.prev { left: 8px; }
+    #popup-gallery .gallery-nav.next { right: 8px; }
+    #popup-gallery .gallery-dots {
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 5px;
+    }
+    .gallery-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,0.45); cursor: pointer;
+    }
+    .gallery-dot.active { background: var(--gold-lt); }
+
+    #popup-body {
+      flex: 1; overflow-y: auto; padding: 14px 16px 24px;
+      scrollbar-width: thin; scrollbar-color: var(--stone-lt) var(--parchment-dk);
+    }
+
+    #popup-title {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(17px, 5vw, 26px);
+      color: var(--ink);
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+    #popup-category {
+      font-family: 'Crimson Text', serif;
+      font-style: italic;
+      color: var(--stone);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .popup-section {
+      border-top: 1px solid var(--parchment-dk);
+      margin-top: 12px; padding-top: 10px;
+    }
+    .popup-section-title {
+      font-family: 'Cinzel', serif;
+      font-size: 12px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--red-heraldic);
+      margin-bottom: 6px;
+    }
+    .popup-text {
+      font-family: 'Crimson Text', serif;
+      font-size: 15px; line-height: 1.6; color: var(--ink-lt);
+    }
+
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; margin-top: 4px;
+    }
+    .info-box {
+      background: var(--parchment-dk);
+      border: 1px solid var(--stone-lt);
+      border-radius: 6px; padding: 8px 10px;
+    }
+    .info-box .label {
+      font-family: 'Cinzel', serif;
+      font-size: 10px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--stone);
+      margin-bottom: 3px;
+    }
+    .info-box .value {
+      font-family: 'Crimson Text', serif;
+      font-size: 13px; color: var(--ink);
+    }
+
+    #popup-close {
+      position: absolute; top: 12px; right: 14px; z-index: 1;
+      background: var(--ink); color: var(--gold-lt);
+      border: 1px solid var(--gold); border-radius: 50%;
+      width: 30px; height: 30px; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+
+    #legend {
+      position: absolute; bottom: 20px; right: 10px; z-index: 800;
+      background: rgba(242,232,201,0.93);
+      border: 1.5px solid var(--gold);
+      border-radius: 8px; padding: 8px 10px;
+      font-family: 'Crimson Text', serif; font-size: 12px; color: var(--ink);
+      max-width: 130px; box-shadow: 2px 2px 8px var(--shadow);
+    }
+    #legend strong {
+      font-family: 'Cinzel', serif; font-size: 10px; display: block;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      margin-bottom: 5px; color: var(--red-heraldic);
+    }
+    .leg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="header">
+  <h1><span class="crown">⚔</span> Castelfranco Veneto <span class="crown">⚔</span><br><small style="font-size:0.6em;letter-spacing:0.2em;color:var(--parchment-dk)">MAPPA TURISTICA</small></h1>
+</div>
+
+<div id="popup-overlay" role="dialog" aria-modal="true">
+  <div id="popup-card">
+    <button id="popup-close" aria-label="Chiudi">✕</button>
+    <div id="popup-drag"></div>
+    <div id="popup-gallery">
+      <button class="gallery-nav prev" id="prev-img" aria-label="Precedente">‹</button>
+      <button class="gallery-nav next" id="next-img" aria-label="Successivo">›</button>
+      <div class="gallery-dots" id="gallery-dots"></div>
+    </div>
+    <div id="popup-body">
+      <div id="popup-title"></div>
+      <div id="popup-category"></div>
+      <div id="popup-content"></div>
+    </div>
+  </div>
+</div>
+
+<div id="legend">
+  <strong>Legenda</strong>
+  <div class="leg-row"><div class="leg-dot" style="background:#b8860b"></div> Monumenti</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#8b1a1a"></div> Musei</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#2e6b3a"></div> Natura / Parchi</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#3a5a8b"></div> Chicche</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const luoghi = [
+  {
+    id: "mura",
+    nome: "Mura Medievali & Camminamento di Ronda",
+    categoria: "Monumento · All'aperto · Camminamento storico",
+    colore: "#b8860b",
+    simbolo: "M",
+    lat: 45.6731, lng: 11.9305,
+    immagini: [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Castelfranco_Veneto_-_veduta_aerea.jpg/1280px-Castelfranco_Veneto_-_veduta_aerea.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Castelfranco_Veneto_Mura.jpg/1280px-Castelfranco_Veneto_Mura.jpg"
+    ],
+    storia: "Edificate tra il 1195 e il 1199 dai Trevigiani per creare un avamposto difensivo contro Padova, le mura di Castelfranco Veneto sono tra le meglio conservate del Veneto. Il perimetro quadrato — fatto insolito nell'architettura militare medievale — con fossato ancora pieno d'acqua rappresenta un unicum nel panorama regionale. Le quattro torri angolari e le quattro porte d'ingresso scandiscono l'intero circuito murario lungo circa 860 metri.\n\nNel settembre 2025 è stato inaugurato il camminamento di ronda sulle mura, primo percorso percorribile in quota nella storia della città. Dal giorno dell'inaugurazione alla fine di settembre 2025, 3.843 visitatori hanno già percorso le mura [web:38].",
+    pratico: {
+      orari: "Mar–Gio: 10:00–13:00 | Ven–Dom: 10:00–18:00",
+      costo: "Intero 3€ | Ridotto per minori, over 65, scuole | Residenti GRATIS",
+      accesso: "Ingresso da Via Borgo Treviso o Torre del Giorgione | Tel. 0423/735624",
+      tip: "Camminamento inaugurato nel 2025; biglietto cumulativo Mura+Torre 5€ (ridotto 3€), incluso nella Castelfranco Card [web:38][web:51]"
+    }
+  },
+  {
+    id: "torre",
+    nome: "Torre Civica",
+    categoria: "Monumento · Panorama · 43 metri",
+    colore: "#b8860b",
+    simbolo: "T",
+    lat: 45.6722, lng: 11.9312,
+    immagini: [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Torre_civica_castelfranco.jpg/640px-Torre_civica_castelfranco.jpg"
+    ],
+    storia: "La Torre Civica, simbolo della città da otto secoli, costituisce la parte più rilevante della complessa struttura fortificata. Si erge a metà della cortina muraria orientale ed è detta anche Torre Davanti o Torre Franca. In origine della stessa altezza delle torri d'angolo, con l'aggiunta della cella campanaria all'inizio della dominazione veneziana raggiunge 43 metri di altezza.\n\nIl carro affrescato sulla volta della porta di ingresso ricorda la dominazione carrarese, mentre il quadrante azzurro dell'orologio e il leone di San Marco testimoniano la lunga dominazione veneziana [web:16].",
+    pratico: {
+      orari: "Sab–Dom: 10:00–18:00 (marzo–novembre) | Feriali su prenotazione",
+      costo: "Intero 3€ | Ridotto 1,5€ | Cumulativo Mura+Torre 5€ (ridotto 3€)",
+      accesso: "Via Riccati, 11 | Tel. 0423/735624 | torre@comune.castelfranco-veneto.tv.it",
+      tip: "Salita di circa 100 gradini con vista a 360° sulla pianura veneta e sulle Prealpi [web:16]"
+    }
+  },
+  {
+    id: "duomo",
+    nome: "Duomo di Santa Maria Assunta e San Liberale",
+    categoria: "Luogo di culto · Pala di Giorgione (1503–1504)",
+    colore: "#b8860b",
+    simbolo: "D",
+    lat: 45.6721, lng: 11.9298,
+    immagini: [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Castelfranco_Veneto_-_Duomo.jpg/1280px-Castelfranco_Veneto_-_Duomo.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Giorgione_-_Pala_di_Castelfranco.jpg/640px-Giorgione_-_Pala_di_Castelfranco.jpg"
+    ],
+    storia: "Nel Duomo si conserva la Pala di Castelfranco, commissionata da Tuzio Costanzo per la cappella di famiglia in memoria del figlio Matteo. L'opera, databile tra 1503 e 1504, raffigura la Madonna in trono con il Bambino, san Francesco e san Nicasio, in uno spazio luminoso aperto sul paesaggio. È una delle opere più celebri e più enigmatiche di Giorgione [web:16].",
+    pratico: {
+      orari: "Ingresso libero | Visite guidate 'Chiese Aperte' nei fine settimana selezionati",
+      costo: "Ingresso libero",
+      accesso: "Vicolo del Cristo 14 | www.chiesacastelfranco.it",
+      tip: "Il trono della Madonna è volutamente innalzato in modo insolito, per creare una scena quasi sospesa nel paesaggio [web:16]"
+    }
+  },
+  {
+    id: "giorgione",
+    nome: "Museo Casa Giorgione",
+    categoria: "Museo · Arte rinascimentale · Fregio originale",
+    colore: "#8b1a1a",
+    simbolo: "G",
+    lat: 45.6720, lng: 11.9295,
+    immagini: [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Casa_di_Giorgione.jpg/1280px-Casa_di_Giorgione.jpg"
+    ],
+    storia: "Il Museo Casa Giorgione è allestito nella casa dove, per tradizione, nacque Giorgione. Il museo conserva il celebre Fregio, affresco parietale, unica opera del pittore ancora in situ. Il percorso espositivo ricostruisce la vita e il genio dell'artista con materiali, immagini e approfondimenti sulla sua produzione [web:16].",
+    pratico: {
+      orari: "Mar–Gio: 10:00–13:00 (biglietteria chiude 12:30) | Ven–Dom: 10:00–18:00 (biglietteria chiude 17:30) | Chiuso lun, Natale, 1º gennaio, Pasqua",
+      costo: "Intero 7€ | Ridotto 5€ | Minori 1€ | Famiglia 12€ | Gratis: bambini ≤6, disabili, residenti a Castelfranco (senza mostre temporanee)",
+      accesso: "Piazza San Liberale | Tel. 0423/725022 | info@museocasagiorgione.it",
+      tip: "Il Fregio è l'unica pittura murale di Giorgione arrivata fino a noi [web:16]"
+    }
+  },
+  {
+    id: "teatro",
+    nome: "Teatro Accademico",
+    categoria: "Teatro barocco · 1746 · Francesco Maria Preti",
+    colore: "#b8860b",
+    simbolo: "A",
+    lat: 45.6718, lng: 11.9302,
+    immagini: [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Teatro_Accademico_Castelfranco_Veneto.jpg/1280px-Teatro_Accademico_Castelfranco_Veneto.jpg"
+    ],
+    storia: "Il Teatro Accademico è un capolavoro di architettura settecentesca progettato nel 1746 da Francesco Maria Preti. Il teatro a ferro di cavallo con tre ordini di palchi è uno dei più belli della Marca Trevigiana e ospita stagioni teatrali, concerti e iniziative culturali [web:37].",
+    pratico: {
+      orari: "Sab–Dom: 11:00–13:00 e 15:00–19:00 (estate) | Visite guidate su prenotazione",
+      costo: "Ingresso libero durante le aperture | Spettacoli a pagamento",
+      accesso: "Via Giuseppe Garibaldi, 4 | Tel. 392/22979991 o 334/3931418",
+      tip: "Ogni domenica pomeriggio il teatro apre con attività e spettacoli dedicati al pubblico [web:31][web:23]"
+    }
+  },
+  {
+    id: "bolasco",
+    nome: "Villa Parco Bolasco",
+    categoria: "Parco storico · 13 ettari · Università di Padova",
+    colore: "#2e6b3a",
+    simbolo: "B",
+    lat: 45.6740, lng: 11.9275,
+    immagini: [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Villa_Bolasco_Castelfranco.jpg/1280px-Villa_Bolasco_Castelfranco.jpg"
+    ],
+    storia: "Il Parco Bolasco è uno dei più estesi parchi storici del Veneto, con oltre 13 ettari di verde. Il complesso, realizzato nell'Ottocento in stile romantico-paesaggistico, comprende Villa Bolasco, alberi monumentali, laghetti artificiali, tempietto e finte rovine. Oggi è collegato all'Università degli Studi di Padova [web:39].",
+    pratico: {
+      orari: "Sab–Dom e festivi: 10:00–19:00 in stagione, con ultimo ingresso 45 minuti prima della chiusura",
+      costo: "Intero 5€ | Famiglia 13€ | Scuole 2€ | Gratis per alcune categorie e residenti",
+      accesso: "Via Ospedale, Castelfranco Veneto | Tel. 049/8273939 | prenotazioni@villaparcobolasco.it",
+      tip: "Le visite guidate sono organizzate dall'Orto botanico dell'Università di Padova e durano 90 minuti [web:39]"
+    }
+  },
+  {
+    id: "piazza",
+    nome: "Piazza Giorgione",
+    categoria: "Piazza · Cuore della città",
+    colore: "#b8860b",
+    simbolo: "P",
+    lat: 45.6716, lng: 11.9310,
+    immagini: [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Castelfranco_Veneto_-_Piazza_Giorgione.jpg/1280px-Castelfranco_Veneto_-_Piazza_Giorgione.jpg"
+    ],
+    storia: "Piazza Giorgione è il cuore pulsante della città, circondata da portici e palazzi storici. La statua del pittore al centro della piazza richiama il legame profondo tra Castelfranco e Giorgione. Qui si tengono il mercato settimanale e le principali manifestazioni cittadine.",
+    pratico: {
+      orari: "Sempre aperta",
+      costo: "Gratuito",
+      accesso: "Centro storico, lato est",
+      tip: "Il mercato del giovedì mattina è un appuntamento tradizionale molto frequentato"
+    }
+  },
+  {
+    id: "fossato",
+    nome: "Fossato delle Mura & Spalti",
+    categoria: "Chicca · Passeggiata · Fossato con acqua",
+    colore: "#3a5a8b",
+    simbolo: "F",
+    lat: 45.6735, lng: 11.9325,
+    immagini: [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Castelfranco_Veneto_-_fossato.jpg/1280px-Castelfranco_Veneto_-_fossato.jpg"
+    ],
+    storia: "Il fossato che circonda le mura è ancora alimentato d'acqua e costituisce uno degli elementi più caratteristici del sistema difensivo. Il percorso pedonale degli Spalti offre una passeggiata panoramica con vista sulle mura dall'esterno.",
+    pratico: {
+      orari: "Sempre aperto",
+      costo: "Gratuito",
+      accesso: "Percorso intorno alle mura",
+      tip: "Al tramonto il riflesso delle mura nell'acqua è particolarmente suggestivo"
+    }
+  },
+  {
+    id: "conservatorio",
+    nome: "Conservatorio di Musica 'Agostino Steffani'",
+    categoria: "Chicca musicale · Barocco",
+    colore: "#3a5a8b",
+    simbolo: "S",
+    lat: 45.6715, lng: 11.9286,
+    immagini: [],
+    storia: "Il Conservatorio è intitolato ad Agostino Steffani, compositore e diplomatico nato a Castelfranco nel 1654. Ospita attività didattiche e concerti aperti al pubblico durante l'anno accademico [web:50][web:53].",
+    pratico: {
+      orari: "Concerti pubblici durante l'anno accademico",
+      costo: "Generalmente ingresso libero",
+      accesso: "Via Borgo Padova",
+      tip: "I concerti di musica antica sono spesso a ingresso libero [web:50]"
+    }
+  },
+  {
+    id: "spalti_giardini",
+    nome: "Giardini degli Spalti & Bastioni",
+    categoria: "Chicca · Verde urbano",
+    colore: "#2e6b3a",
+    simbolo: "G",
+    lat: 45.6728, lng: 11.9285,
+    immagini: [],
+    storia: "I giardini ricavati sui bastioni delle mura offrono una prospettiva inedita sul sistema fortificato. Sono un luogo tranquillo per una sosta e, in estate, ospitano iniziative legate alla rassegna Oltremura [web:13].",
+    pratico: {
+      orari: "Sempre aperti",
+      costo: "Gratuito",
+      accesso: "Lato sud-ovest delle mura",
+      tip: "Uno dei punti più piacevoli per una passeggiata serale"
+    }
+  }
+];
+
+const map = L.map("map", {
+  center: [45.6725, 11.9305],
+  zoom: 16,
+  zoomControl: false,
+  attributionControl: true
+});
+
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+  subdomains: "abcd",
+  maxZoom: 19
+}).addTo(map);
+
+async function caricaMura() {
+  const query = `
+    [out:json][timeout:25];
+    (
+      way["historic"="city_wall"](45.668,11.926,45.677,11.937);
+      way["barrier"="city_wall"](45.668,11.926,45.677,11.937);
+      relation["historic"="city_wall"](45.668,11.926,45.677,11.937);
+      way["historic"="castle"](45.668,11.926,45.677,11.937);
+      way["man_made"="embankment"]["name"~"[Mm]ura"](45.668,11.926,45.677,11.937);
+    );
+    (._;>;);
+    out body;
+  `;
+  try {
+    const resp = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      body: "data=" + encodeURIComponent(query)
+    });
+    const data = await resp.json();
+    const nodes = {};
+    data.elements.filter(e => e.type === "node").forEach(n => { nodes[n.id] = [n.lat, n.lon]; });
+    const ways = data.elements.filter(e => e.type === "way");
+
+    ways.forEach(way => {
+      const coords = way.nodes.map(nid => nodes[nid]).filter(Boolean);
+      if (coords.length < 2) return;
+      L.polyline(coords, { color: "#3d2a00", weight: 14, opacity: 0.25, lineCap: "round", lineJoin: "round" }).addTo(map);
+      L.polyline(coords, { color: "#8b6914", weight: 7, opacity: 0.95, lineCap: "round", lineJoin: "round" }).addTo(map);
+      L.polyline(coords, { color: "#f0c040", weight: 2, opacity: 0.7, lineCap: "round", lineJoin: "round", dashArray: "6,4" }).addTo(map);
+    });
+  } catch(e) {
+    console.warn("Overpass non raggiungibile, mura non caricate:", e);
+  }
+}
+caricaMura();
+
+L.control.zoom({ position: "bottomright" }).addTo(map);
+
+function creaIcona(simbolo, colore) {
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+    <defs>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${colore}"/>
+        <stop offset="100%" stop-color="#5f4710"/>
+      </linearGradient>
+    </defs>
+    <circle cx="18" cy="18" r="16" fill="url(#g)" stroke="#2c1a0e" stroke-width="2.2"/>
+    <text x="18" y="22" text-anchor="middle"
+      font-family="Cinzel, serif" font-size="14" font-weight="700"
+      fill="#f2e8c9">${simbolo}</text>
+  </svg>`;
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:36px;height:36px;transform:translateY(0);">${svg}</div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 36],
+    popupAnchor: [0, -36]
+  });
+}
+
+luoghi.forEach(luogo => {
+  const marker = L.marker([luogo.lat, luogo.lng], { icon: creaIcona(luogo.simbolo, luogo.colore) }).addTo(map);
+  marker.on("click", () => apriPopup(luogo));
+});
+
+let galleryIndex = 0;
+let galleryImgs = [];
+
+function apriPopup(luogo) {
+  galleryImgs = luogo.immagini || [];
+  galleryIndex = 0;
+
+  document.getElementById("popup-title").textContent = luogo.nome;
+  document.getElementById("popup-category").textContent = luogo.categoria;
+
+  const gallery = document.getElementById("popup-gallery");
+  gallery.querySelectorAll("img").forEach(i => i.remove());
+  const dots = document.getElementById("gallery-dots");
+  dots.innerHTML = "";
+
+  if (galleryImgs.length === 0) {
+    gallery.style.height = "0";
+    gallery.style.display = "none";
+  } else {
+    gallery.style.height = "200px";
+    gallery.style.display = "block";
+    galleryImgs.forEach((src, idx) => {
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = luogo.nome;
+      img.onerror = () => { img.src = "https://via.placeholder.com/640x200/2c1a0e/daa520?text=Immagine+non+disponibile"; };
+      if (idx === 0) img.classList.add("active");
+      gallery.insertBefore(img, gallery.querySelector(".gallery-nav.prev"));
+
+      const dot = document.createElement("div");
+      dot.className = "gallery-dot" + (idx === 0 ? " active" : "");
+      dot.onclick = () => setGalleryIndex(idx);
+      dots.appendChild(dot);
+    });
+  }
+
+  let html = `<p class="popup-text">${luogo.storia.replace(/\n\n/g, '</p><p class="popup-text">')}</p>`;
+  html += `<div class="popup-section">`;
+  html += `<div class="popup-section-title">⚙ Informazioni pratiche</div>`;
+  html += `<div class="info-grid">`;
+  if (luogo.pratico.orari) html += `<div class="info-box"><div class="label">🕐 Orari</div><div class="value">${luogo.pratico.orari}</div></div>`;
+  if (luogo.pratico.costo) html += `<div class="info-box"><div class="label">💰 Costi</div><div class="value">${luogo.pratico.costo}</div></div>`;
+  html += `</div>`;
+  if (luogo.pratico.accesso) html += `<p class="popup-text" style="margin-top:8px">📍 ${luogo.pratico.accesso}</p>`;
+  html += `</div>`;
+  if (luogo.pratico.tip) {
+    html += `<div class="popup-section"><div class="popup-section-title">✨ Chicca del viandante</div>`;
+    html += `<p class="popup-text">${luogo.pratico.tip}</p></div>`;
+  }
+  document.getElementById("popup-content").innerHTML = html;
+
+  const overlay = document.getElementById("popup-overlay");
+  overlay.classList.add("open");
+  document.getElementById("popup-body").scrollTop = 0;
+}
+
+function setGalleryIndex(idx) {
+  const imgs = document.querySelectorAll("#popup-gallery img");
+  const dots = document.querySelectorAll(".gallery-dot");
+  if (imgs.length === 0) return;
+  imgs[galleryIndex].classList.remove("active");
+  dots[galleryIndex].classList.remove("active");
+  galleryIndex = (idx + galleryImgs.length) % galleryImgs.length;
+  imgs[galleryIndex].classList.add("active");
+  dots[galleryIndex].classList.add("active");
+}
+
+document.getElementById("prev-img").onclick = () => setGalleryIndex(galleryIndex - 1);
+document.getElementById("next-img").onclick = () => setGalleryIndex(galleryIndex + 1);
+document.getElementById("popup-close").onclick = chiudiPopup;
+document.getElementById("popup-overlay").addEventListener("click", e => {
+  if (e.target === document.getElementById("popup-overlay")) chiudiPopup();
+});
+
+function chiudiPopup() {
+  document.getElementById("popup-overlay").classList.remove("open");
+}
+
+let startY = 0;
+document.getElementById("popup-card").addEventListener("touchstart", e => { startY = e.touches[0].clientY; }, { passive: true });
+document.getElementById("popup-card").addEventListener("touchend", e => {
+  if (e.changedTouches[0].clientY - startY > 80) chiudiPopup();
+}, { passive: true });
+
+document.addEventListener("keydown", e => { if (e.key === "Escape") chiudiPopup(); });
+</script>
+</body>
+</html>
