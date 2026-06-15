@@ -2,620 +2,984 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Castelfranco Veneto – Mappa Turistica</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b1009" />
+  <title>Castelfranco Veneto · Mappa Turistica</title>
+  <meta name="description" content="Mappa interattiva del centro storico di Castelfranco Veneto: mura medievali, Giorgione, musei, chiese e parchi." />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; width: 100%; overflow: hidden; }
-
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&display=swap');
+    html, body { height: 100%; width: 100%; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Crimson Text', serif; color: #2c1a0e; background: #1b1009; }
 
     :root {
-      --parchment: #f2e8c9;
-      --parchment-dk: #d9c89a;
-      --ink: #2c1a0e;
-      --ink-lt: #4a2e14;
+      --parchment: #f3e9cd;
+      --parchment-2: #e9dcb6;
+      --parchment-dk: #d8c596;
+      --ink: #1b1009;
+      --ink-2: #2c1a0e;
+      --ink-3: #4a2e14;
       --gold: #b8860b;
-      --gold-lt: #daa520;
-      --red-heraldic: #8b1a1a;
+      --gold-lt: #e3b94e;
+      --gold-soft: #d9b15c;
+      --red: #8b1a1a;
       --stone: #7a6a52;
       --stone-lt: #a89070;
-      --shadow: rgba(44,26,14,0.45);
+      --shadow: rgba(20,10,4,0.45);
+      --top-h: 104px;
     }
 
-    #map {
-      position: absolute; inset: 0;
-      z-index: 1;
-      filter: sepia(55%) saturate(70%) brightness(0.92) contrast(1.05);
+    /* ---------- MAP ---------- */
+    #map { position: absolute; inset: 0; z-index: 1; background: #cdбcad; background:#d9c7a6; }
+    /* antique tint only on the tiles, so pins & overlays stay vivid */
+    .leaflet-tile-pane { filter: sepia(42%) saturate(82%) brightness(0.96) contrast(1.05); }
+    .leaflet-container { background: #d9c7a6; font-family: 'Crimson Text', serif; }
+    .leaflet-control-attribution { background: rgba(243,233,205,0.82) !important; font-size: 10px; }
+
+    /* gentle vignette for atmosphere */
+    #vignette {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      box-shadow: inset 0 0 140px 30px rgba(27,16,9,0.38);
+      mix-blend-mode: multiply;
     }
 
-    #header {
+    /* ---------- TOP BAR ---------- */
+    #topbar {
       position: absolute; top: 0; left: 0; right: 0; z-index: 900;
-      background: linear-gradient(135deg, var(--ink) 0%, var(--ink-lt) 50%, var(--ink) 100%);
-      border-bottom: 3px solid var(--gold);
-      padding: 8px 14px 6px;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 3px 10px var(--shadow);
+      background:
+        linear-gradient(180deg, rgba(20,11,4,0.96) 0%, rgba(31,19,9,0.94) 60%, rgba(31,19,9,0.90) 100%);
+      border-bottom: 2px solid var(--gold);
+      box-shadow: 0 4px 18px var(--shadow);
+      padding: max(8px, env(safe-area-inset-top)) 10px 0;
     }
-    #header h1 {
-      font-family: 'Cinzel Decorative', 'Cinzel', serif;
-      font-size: clamp(13px, 4vw, 22px);
+    #brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 4px 8px; max-width: 1100px; margin: 0 auto;
+    }
+    #crest {
+      width: 38px; height: 44px; flex-shrink: 0;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+      object-fit: contain;
+    }
+    #crest-fallback {
+      width: 38px; height: 44px; flex-shrink: 0; display: none;
+      align-items: center; justify-content: center;
+      font-size: 26px; color: var(--gold-lt);
+    }
+    #brand-txt { flex: 1; min-width: 0; }
+    #brand-txt h1 {
+      font-family: 'Cinzel Decorative', serif; font-weight: 700;
+      font-size: clamp(15px, 4.6vw, 24px); line-height: 1.05;
       color: var(--gold-lt);
-      text-shadow: 0 0 8px rgba(184,134,11,0.6), 1px 1px 2px #000;
-      letter-spacing: 0.05em;
-      text-align: center;
+      text-shadow: 0 0 10px rgba(184,134,11,0.45), 1px 1px 2px #000;
+      letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    #header .crown { font-size: 1.3em; margin: 0 8px; }
-
-    .custom-marker {
-      width: 36px; height: 36px;
-      background: radial-gradient(circle at 40% 35%, var(--gold-lt), var(--gold));
-      border: 2.5px solid var(--ink);
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      box-shadow: 2px 2px 6px var(--shadow);
+    #brand-txt p {
+      font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.34em;
+      color: var(--parchment-dk); text-transform: uppercase; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #menu-btn {
+      flex-shrink: 0; width: 42px; height: 42px; border-radius: 10px;
+      background: rgba(243,233,205,0.06); border: 1px solid var(--gold);
+      color: var(--gold-lt); font-size: 20px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
+      transition: background .2s, transform .1s;
+    }
+    #menu-btn:hover { background: rgba(227,185,78,0.18); }
+    #menu-btn:active { transform: scale(0.94); }
+
+    /* filter chips */
+    #chips {
+      display: flex; gap: 7px; overflow-x: auto; overflow-y: hidden;
+      padding: 0 6px 9px; max-width: 1100px; margin: 0 auto;
+      scrollbar-width: none;
+    }
+    #chips::-webkit-scrollbar { display: none; }
+    .chip {
+      flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+      font-family: 'Cinzel', serif; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.04em; color: var(--parchment);
+      background: rgba(243,233,205,0.07);
+      border: 1px solid rgba(217,177,92,0.5); border-radius: 999px;
+      padding: 6px 12px; cursor: pointer; white-space: nowrap;
+      transition: all .18s ease;
+    }
+    .chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+    .chip:hover { border-color: var(--gold-lt); color: #fff; }
+    .chip.active {
+      background: linear-gradient(180deg, var(--gold-lt), var(--gold));
+      color: var(--ink); border-color: var(--gold-lt);
+      box-shadow: 0 2px 8px rgba(184,134,11,0.4);
+    }
+
+    /* ---------- MAP PINS ---------- */
+    .pin-wrap { background: none !important; border: none !important; }
+    .pin {
+      position: relative; width: 40px; height: 52px;
+      transform-origin: 50% 100%;
+      animation: pinDrop .5s cubic-bezier(.2,.8,.3,1) backwards;
+      transition: transform .15s ease, filter .15s ease;
       cursor: pointer;
-      position: relative;
     }
-    .custom-marker span {
-      transform: rotate(45deg);
-      font-size: 14px;
-      line-height: 1;
-      color: var(--ink);
-      font-family: 'Cinzel', serif;
-      font-weight: 700;
-      letter-spacing: 0.02em;
+    .pin svg { display: block; filter: drop-shadow(0 3px 4px rgba(20,10,4,0.5)); }
+    .pin:hover { transform: translateY(-3px) scale(1.1); }
+    .pin-wrap.is-active { z-index: 1000 !important; }
+    .pin-wrap.is-active .pin { transform: translateY(-2px) scale(1.12); }
+    .pin-wrap.is-active .pin svg { filter: drop-shadow(0 0 7px var(--c)) drop-shadow(0 3px 4px rgba(0,0,0,0.5)); }
+    .pin-wrap.is-active .pin::after {
+      content: ""; position: absolute; left: 50%; top: 19px;
+      width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%;
+      border: 2px solid var(--c); animation: ping 1.4s ease-out infinite; pointer-events: none;
     }
-    .custom-marker:hover { filter: brightness(1.15); }
+    @keyframes pinDrop {
+      0% { transform: translateY(-34px) scale(.5); opacity: 0; }
+      60% { opacity: 1; }
+      80% { transform: translateY(2px) scale(1.04); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    @keyframes ping {
+      0% { transform: scale(.5); opacity: .9; }
+      100% { transform: scale(1.9); opacity: 0; }
+    }
 
-    #popup-overlay {
-      position: fixed; inset: 0; z-index: 9999;
-      background: rgba(20,10,5,0.88);
-      display: none;
-      align-items: flex-end;
-      justify-content: center;
-      backdrop-filter: blur(3px);
+    /* ---------- FAB CONTROLS ---------- */
+    #fabs {
+      position: absolute; right: 12px; bottom: max(24px, env(safe-area-inset-bottom)); z-index: 850;
+      display: flex; flex-direction: column; gap: 8px;
     }
-    #popup-overlay.open { display: flex; }
+    .fab {
+      width: 44px; height: 44px; border-radius: 12px; cursor: pointer;
+      background: linear-gradient(180deg, var(--parchment), var(--parchment-2));
+      border: 1.5px solid var(--gold); color: var(--ink-2);
+      font-size: 20px; line-height: 1; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 10px var(--shadow); transition: transform .1s, background .2s;
+    }
+    .fab:hover { background: linear-gradient(180deg, #fff8e6, var(--parchment)); }
+    .fab:active { transform: scale(0.92); }
+    .fab.group { display: flex; flex-direction: column; gap: 0; padding: 0; height: auto; border-radius: 12px; overflow: hidden; }
+    .fab.group button {
+      width: 44px; height: 40px; border: none; background: transparent; cursor: pointer;
+      font-size: 22px; color: var(--ink-2); display: flex; align-items: center; justify-content: center;
+    }
+    .fab.group button:first-child { border-bottom: 1px solid var(--stone-lt); }
+    .fab.group button:hover { background: rgba(184,134,11,0.16); }
 
-    #popup-card {
+    /* ---------- INDEX DRAWER ---------- */
+    #scrim {
+      position: fixed; inset: 0; z-index: 940; background: rgba(20,10,4,0.5);
+      backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    #scrim.open { opacity: 1; pointer-events: auto; }
+    #drawer {
+      position: fixed; top: 0; bottom: 0; left: 0; z-index: 945;
+      width: min(370px, 88vw);
       background: var(--parchment);
-      width: 100%; max-width: 640px;
-      height: 92vh;
-      border-radius: 16px 16px 0 0;
-      border-top: 4px solid var(--gold);
-      border-left: 2px solid var(--gold);
-      border-right: 2px solid var(--gold);
-      overflow: hidden;
+      background-image:
+        radial-gradient(circle at 18% 12%, rgba(184,134,11,0.07), transparent 60%),
+        radial-gradient(circle at 88% 88%, rgba(139,26,26,0.05), transparent 55%);
+      border-right: 3px solid var(--gold);
+      box-shadow: 6px 0 26px var(--shadow);
+      transform: translateX(-104%); transition: transform .3s cubic-bezier(.2,.8,.3,1);
       display: flex; flex-direction: column;
-      box-shadow: 0 -8px 30px var(--shadow);
-      animation: slideUp .3s ease-out;
     }
-    @keyframes slideUp {
-      from { transform: translateY(100%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
+    #drawer.open { transform: translateX(0); }
+    #drawer-head {
+      padding: max(14px, env(safe-area-inset-top)) 16px 12px;
+      background: linear-gradient(180deg, var(--ink-2), var(--ink-3));
+      border-bottom: 2px solid var(--gold); color: var(--gold-lt);
+      display: flex; align-items: center; justify-content: space-between;
     }
-
-    #popup-drag {
-      width: 40px; height: 5px;
-      background: var(--stone-lt);
-      border-radius: 3px;
-      margin: 10px auto 4px;
-      flex-shrink: 0;
+    #drawer-head h2 { font-family: 'Cinzel Decorative', serif; font-size: 17px; letter-spacing: .02em; }
+    #drawer-close {
+      background: none; border: 1px solid var(--gold); color: var(--gold-lt);
+      width: 30px; height: 30px; border-radius: 8px; font-size: 16px; cursor: pointer;
     }
-
-    #popup-gallery {
-      width: 100%; height: 200px; flex-shrink: 0;
-      position: relative; overflow: hidden;
-      background: var(--ink);
+    #search-wrap { padding: 12px 14px 8px; }
+    #search {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1.5px solid var(--stone-lt); background: #fffdf4;
+      font-family: 'Crimson Text', serif; font-size: 15px; color: var(--ink-2);
     }
-    #popup-gallery img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      display: none;
+    #search:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,134,11,0.18); }
+    #count { padding: 0 16px 6px; font-family: 'Cinzel', serif; font-size: 10px;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--stone); }
+    #idx-list { flex: 1; overflow-y: auto; padding: 4px 10px 24px; scrollbar-width: thin; }
+    .idx-item {
+      width: 100%; text-align: left; display: flex; align-items: center; gap: 11px;
+      background: rgba(255,253,244,0.55); border: 1px solid rgba(168,144,112,0.4);
+      border-radius: 12px; padding: 9px 11px; margin-bottom: 8px; cursor: pointer;
+      transition: transform .12s, background .18s, border-color .18s;
     }
-    #popup-gallery img.active { display: block; }
-    #popup-gallery .gallery-nav {
-      position: absolute; top: 50%; transform: translateY(-50%);
-      background: rgba(44,26,14,0.6); color: var(--gold-lt);
-      border: none; border-radius: 50%;
-      width: 32px; height: 32px;
-      font-size: 18px; cursor: pointer;
+    .idx-item:hover { background: #fffaec; border-color: var(--gold); transform: translateX(3px); }
+    .idx-pin {
+      flex-shrink: 0; width: 30px; height: 30px; border-radius: 50% 50% 50% 4px;
+      transform: rotate(-45deg);
+      background: radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--c) 70%, #fff), var(--c));
+      border: 1.6px solid var(--ink-2);
       display: flex; align-items: center; justify-content: center;
+      box-shadow: 1px 1px 3px var(--shadow);
     }
-    #popup-gallery .gallery-nav.prev { left: 8px; }
-    #popup-gallery .gallery-nav.next { right: 8px; }
-    #popup-gallery .gallery-dots {
-      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 5px;
-    }
-    .gallery-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: rgba(255,255,255,0.45); cursor: pointer;
-    }
-    .gallery-dot.active { background: var(--gold-lt); }
+    .idx-pin span { transform: rotate(45deg); font-family: 'Cinzel', serif; font-weight: 700; font-size: 13px; color: var(--ink); }
+    .idx-txt { min-width: 0; }
+    .idx-name { display: block; font-family: 'Cinzel', serif; font-weight: 600; font-size: 14px; color: var(--ink-2); line-height: 1.15; }
+    .idx-cat { display: block; font-size: 12.5px; font-style: italic; color: var(--stone); margin-top: 1px; }
+    #idx-empty { text-align: center; color: var(--stone); font-style: italic; padding: 30px 16px; display: none; }
 
-    #popup-body {
-      flex: 1; overflow-y: auto; padding: 14px 16px 24px;
-      scrollbar-width: thin; scrollbar-color: var(--stone-lt) var(--parchment-dk);
+    /* ---------- DETAIL SHEET ---------- */
+    #sheet-overlay {
+      position: fixed; inset: 0; z-index: 9990; background: rgba(16,8,3,0.86);
+      backdrop-filter: blur(3px); display: none; align-items: flex-end; justify-content: center;
     }
+    #sheet-overlay.open { display: flex; }
+    #sheet {
+      position: relative; width: 100%; max-width: 660px; height: 92vh;
+      background: var(--parchment);
+      background-image:
+        radial-gradient(circle at 12% 8%, rgba(184,134,11,0.08), transparent 55%),
+        radial-gradient(circle at 90% 100%, rgba(139,26,26,0.05), transparent 55%);
+      border-radius: 18px 18px 0 0; border-top: 4px solid var(--gold);
+      border-left: 2px solid var(--gold); border-right: 2px solid var(--gold);
+      box-shadow: 0 -10px 36px var(--shadow); overflow: hidden;
+      display: flex; flex-direction: column; animation: sheetUp .32s cubic-bezier(.2,.8,.3,1);
+    }
+    @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    #drag { width: 44px; height: 5px; background: rgba(255,255,255,0.7); border-radius: 3px;
+      position: absolute; top: 9px; left: 50%; transform: translateX(-50%); z-index: 5; }
+    #sheet-close {
+      position: absolute; top: 12px; right: 12px; z-index: 6;
+      width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+      background: rgba(27,16,9,0.78); color: var(--gold-lt); border: 1.5px solid var(--gold);
+      font-size: 17px; display: flex; align-items: center; justify-content: center;
+    }
+    #gallery { position: relative; width: 100%; height: 230px; flex-shrink: 0; background: var(--ink-2); overflow: hidden; }
+    #gallery img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    #gallery img.active { display: block; animation: fadeIn .4s ease; }
+    @keyframes fadeIn { from { opacity: .3; } to { opacity: 1; } }
+    #gallery::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+      box-shadow: inset 0 -50px 50px -20px rgba(27,16,9,0.55); }
+    .gnav {
+      position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
+      width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+      background: rgba(27,16,9,0.55); color: var(--gold-lt); border: 1px solid rgba(227,185,78,0.6);
+      font-size: 20px; display: flex; align-items: center; justify-content: center;
+    }
+    .gnav.prev { left: 9px; } .gnav.next { right: 9px; }
+    #dots { position: absolute; bottom: 9px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 6px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.45); cursor: pointer; transition: background .2s; }
+    .dot.active { background: var(--gold-lt); width: 18px; border-radius: 4px; }
 
-    #popup-title {
-      font-family: 'Cinzel', serif;
-      font-size: clamp(17px, 5vw, 26px);
-      color: var(--ink);
-      margin-bottom: 4px;
-      line-height: 1.2;
+    #sheet-body { flex: 1; overflow-y: auto; padding: 16px 18px 28px; scrollbar-width: thin; }
+    #sheet-title { font-family: 'Cinzel', serif; font-weight: 700; font-size: clamp(19px, 5.4vw, 27px); color: var(--ink-2); line-height: 1.16; }
+    #sheet-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 4px; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 5px; font-family: 'Cinzel', serif;
+      font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+      padding: 4px 9px; border-radius: 999px; color: #fff;
     }
-    #popup-category {
-      font-family: 'Crimson Text', serif;
-      font-style: italic;
-      color: var(--stone);
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
+    .tag.muted { background: var(--parchment-dk); color: var(--ink-3); }
+    .subcat { font-style: italic; color: var(--stone); font-size: 13.5px; margin-top: 6px; }
 
-    .popup-section {
-      border-top: 1px solid var(--parchment-dk);
-      margin-top: 12px; padding-top: 10px;
+    .actions { display: flex; gap: 8px; margin: 14px 0 2px; }
+    .act {
+      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      font-family: 'Cinzel', serif; font-weight: 600; font-size: 13px; letter-spacing: .03em;
+      padding: 11px 10px; border-radius: 11px; cursor: pointer; border: 1.5px solid var(--gold);
+      transition: transform .1s, filter .15s;
     }
-    .popup-section-title {
-      font-family: 'Cinzel', serif;
-      font-size: 12px; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--red-heraldic);
-      margin-bottom: 6px;
-    }
-    .popup-text {
-      font-family: 'Crimson Text', serif;
-      font-size: 15px; line-height: 1.6; color: var(--ink-lt);
-    }
+    .act:active { transform: scale(0.97); }
+    .act.primary { background: linear-gradient(180deg, var(--gold-lt), var(--gold)); color: var(--ink); }
+    .act.primary:hover { filter: brightness(1.06); }
+    .act.ghost { background: rgba(255,253,244,0.6); color: var(--ink-3); }
+    .act.ghost:hover { background: #fffaec; }
 
-    .info-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 8px; margin-top: 4px;
+    .section { border-top: 1px solid var(--parchment-dk); margin-top: 16px; padding-top: 12px; }
+    .section-title {
+      font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--red); margin-bottom: 8px; display: flex; align-items: center; gap: 7px;
     }
-    .info-box {
-      background: var(--parchment-dk);
-      border: 1px solid var(--stone-lt);
-      border-radius: 6px; padding: 8px 10px;
-    }
-    .info-box .label {
-      font-family: 'Cinzel', serif;
-      font-size: 10px; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--stone);
-      margin-bottom: 3px;
-    }
-    .info-box .value {
-      font-family: 'Crimson Text', serif;
-      font-size: 13px; color: var(--ink);
-    }
+    .section-title::before { content: "❧"; color: var(--gold); font-size: 14px; }
+    .text { font-size: 16px; line-height: 1.62; color: var(--ink-3); }
+    .text + .text { margin-top: 9px; }
+    .text .hl { background: linear-gradient(transparent 62%, rgba(227,185,78,0.5) 62%); padding: 0 1px; }
 
-    #popup-close {
-      position: absolute; top: 12px; right: 14px; z-index: 1;
-      background: var(--ink); color: var(--gold-lt);
-      border: 1px solid var(--gold); border-radius: 50%;
-      width: 30px; height: 30px; font-size: 18px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .box { background: rgba(255,253,244,0.6); border: 1px solid var(--stone-lt); border-radius: 10px; padding: 9px 11px; }
+    .box .label { font-family: 'Cinzel', serif; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--stone); margin-bottom: 4px; }
+    .box .value { font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+    .tip { background: rgba(184,134,11,0.1); border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; padding: 10px 12px; }
 
-    #legend {
-      position: absolute; bottom: 20px; right: 10px; z-index: 800;
-      background: rgba(242,232,201,0.93);
-      border: 1.5px solid var(--gold);
-      border-radius: 8px; padding: 8px 10px;
-      font-family: 'Crimson Text', serif; font-size: 12px; color: var(--ink);
-      max-width: 130px; box-shadow: 2px 2px 8px var(--shadow);
+    /* ---------- SPLASH ---------- */
+    #splash {
+      position: fixed; inset: 0; z-index: 99999; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      background:
+        radial-gradient(circle at 50% 38%, #3a2410 0%, #1b1009 60%, #0e0703 100%);
+      transition: opacity .6s ease; text-align: center; padding: 24px;
     }
-    #legend strong {
-      font-family: 'Cinzel', serif; font-size: 10px; display: block;
-      text-transform: uppercase; letter-spacing: 0.1em;
-      margin-bottom: 5px; color: var(--red-heraldic);
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    #splash img { width: 92px; height: auto; filter: drop-shadow(0 0 22px rgba(227,185,78,0.55)); animation: float 3s ease-in-out infinite; }
+    #splash .glyph { font-size: 64px; color: var(--gold-lt); filter: drop-shadow(0 0 22px rgba(227,185,78,0.55)); }
+    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    #splash h1 { font-family: 'Cinzel Decorative', serif; font-weight: 900; font-size: clamp(22px, 7vw, 38px);
+      color: var(--gold-lt); text-shadow: 0 0 24px rgba(184,134,11,0.5); letter-spacing: .02em; }
+    #splash p { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .42em; text-transform: uppercase; color: var(--parchment-dk); }
+    #splash .bar { width: 160px; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(227,185,78,0.2); margin-top: 6px; }
+    #splash .bar i { display: block; height: 100%; width: 40%; background: var(--gold-lt);
+      animation: load 1.1s ease-in-out infinite; }
+    @keyframes load { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+
+    /* ---------- TOAST ---------- */
+    #toast {
+      position: fixed; left: 50%; bottom: 84px; transform: translate(-50%, 20px); z-index: 9995;
+      background: var(--ink-2); color: var(--parchment); border: 1px solid var(--gold);
+      padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: 0 4px 14px var(--shadow);
+      opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; max-width: 86vw; text-align: center;
     }
-    .leg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-    .leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* ---------- DESKTOP ---------- */
+    @media (min-width: 760px) {
+      #sheet-overlay { align-items: center; }
+      #sheet { height: auto; max-height: 88vh; border-radius: 18px;
+        border: 3px solid var(--gold); animation: popIn .3s cubic-bezier(.2,.8,.3,1); }
+      @keyframes popIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      #drag { display: none; }
+      #gallery { height: 280px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001s !important; transition-duration: .05s !important; }
+    }
   </style>
 </head>
 <body>
 
 <div id="map"></div>
+<div id="vignette"></div>
 
-<div id="header">
-  <h1><span class="crown">⚔</span> Castelfranco Veneto <span class="crown">⚔</span><br><small style="font-size:0.6em;letter-spacing:0.2em;color:var(--parchment-dk)">MAPPA TURISTICA</small></h1>
+<!-- hidden SVG gradients for the pins -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="pin-defs"></defs></svg>
+
+<header id="topbar">
+  <div id="brand">
+    <img id="crest" alt="Stemma di Castelfranco Veneto"
+      src="https://commons.wikimedia.org/wiki/Special:FilePath/Castelfranco%20Veneto-Stemma.svg" />
+    <div id="crest-fallback">⚜</div>
+    <div id="brand-txt">
+      <h1>Castelfranco Veneto</h1>
+      <p>Città del Giorgione</p>
+    </div>
+    <button id="menu-btn" aria-label="Apri l'indice dei luoghi">☰</button>
+  </div>
+  <div id="chips"></div>
+</header>
+
+<div id="fabs">
+  <div class="fab group" role="group" aria-label="Zoom">
+    <button id="zoom-in" aria-label="Ingrandisci">+</button>
+    <button id="zoom-out" aria-label="Riduci">−</button>
+  </div>
+  <button class="fab" id="locate-btn" aria-label="La mia posizione" title="La mia posizione">◎</button>
+  <button class="fab" id="home-btn" aria-label="Inquadra tutto" title="Inquadra tutto">⤢</button>
 </div>
 
-<div id="popup-overlay" role="dialog" aria-modal="true">
-  <div id="popup-card">
-    <button id="popup-close" aria-label="Chiudi">✕</button>
-    <div id="popup-drag"></div>
-    <div id="popup-gallery">
-      <button class="gallery-nav prev" id="prev-img" aria-label="Precedente">‹</button>
-      <button class="gallery-nav next" id="next-img" aria-label="Successivo">›</button>
-      <div class="gallery-dots" id="gallery-dots"></div>
+<!-- index drawer -->
+<div id="scrim"></div>
+<aside id="drawer" aria-label="Indice dei luoghi">
+  <div id="drawer-head">
+    <h2>Luoghi da visitare</h2>
+    <button id="drawer-close" aria-label="Chiudi">✕</button>
+  </div>
+  <div id="search-wrap">
+    <input id="search" type="search" placeholder="Cerca un luogo…" autocomplete="off" />
+  </div>
+  <div id="count"></div>
+  <div id="idx-list"></div>
+  <div id="idx-empty">Nessun luogo trovato.</div>
+</aside>
+
+<!-- detail sheet -->
+<div id="sheet-overlay" role="dialog" aria-modal="true">
+  <div id="sheet">
+    <div id="drag"></div>
+    <button id="sheet-close" aria-label="Chiudi">✕</button>
+    <div id="gallery">
+      <button class="gnav prev" id="g-prev" aria-label="Immagine precedente">‹</button>
+      <button class="gnav next" id="g-next" aria-label="Immagine successiva">›</button>
+      <div id="dots"></div>
     </div>
-    <div id="popup-body">
-      <div id="popup-title"></div>
-      <div id="popup-category"></div>
-      <div id="popup-content"></div>
+    <div id="sheet-body">
+      <h2 id="sheet-title"></h2>
+      <div id="sheet-chips"></div>
+      <div id="sheet-content"></div>
     </div>
   </div>
 </div>
 
-<div id="legend">
-  <strong>Legenda</strong>
-  <div class="leg-row"><div class="leg-dot" style="background:#b8860b"></div> Monumenti</div>
-  <div class="leg-row"><div class="leg-dot" style="background:#8b1a1a"></div> Musei</div>
-  <div class="leg-row"><div class="leg-dot" style="background:#2e6b3a"></div> Natura / Parchi</div>
-  <div class="leg-row"><div class="leg-dot" style="background:#3a5a8b"></div> Chicche</div>
+<!-- splash -->
+<div id="splash">
+  <img id="splash-crest" alt="" src="https://commons.wikimedia.org/wiki/Special:FilePath/Castelfranco%20Veneto-Stemma.svg" />
+  <div class="glyph" id="splash-glyph" style="display:none">⚜</div>
+  <h1>Castelfranco Veneto</h1>
+  <p>Mappa Turistica</p>
+  <div class="bar"><i></i></div>
 </div>
+
+<div id="toast"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+/* ============================================================
+   CATEGORIE
+   ============================================================ */
+const CATEGORIE = {
+  monumento: { nome: "Monumenti", colore: "#c69320", icona: "🏛" },
+  museo:     { nome: "Musei",     colore: "#9d2235", icona: "🖼" },
+  culto:     { nome: "Chiese",    colore: "#5b3a8b", icona: "⛪" },
+  natura:    { nome: "Natura",    colore: "#2e7d46", icona: "🌳" },
+  chicca:    { nome: "Chicche",   colore: "#2f6f9e", icona: "✨" }
+};
+
+const WM = name => "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(name);
+
+/* ============================================================
+   LUOGHI  (coordinate verificate su OpenStreetMap)
+   ============================================================ */
 const luoghi = [
   {
-    id: "mura",
+    id: "mura", cat: "monumento", simbolo: "M",
     nome: "Mura Medievali & Camminamento di Ronda",
-    categoria: "Monumento · All'aperto · Camminamento storico",
-    colore: "#b8860b",
-    simbolo: "M",
+    sottocat: "Cinta muraria · 1195–1199 · camminamento panoramico",
     lat: 45.672229, lng: 11.926716,
-    immagini: [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Castelfranco%20Veneto%20-%20Torre%20di%20Porta%20Treviso%20-%202023-09-30%2013-27-59%20001.jpg"
-    ],
-    storia: "Edificate tra il 1195 e il 1199 dai Trevigiani per creare un avamposto difensivo contro Padova, le mura di Castelfranco Veneto sono tra le meglio conservate del Veneto. Il perimetro quadrato — fatto insolito nell'architettura militare medievale — con fossato ancora pieno d'acqua rappresenta un unicum nel panorama regionale. Le quattro torri angolari e le quattro porte d'ingresso scandiscono l'intero circuito murario lungo circa 860 metri.\n\nNel settembre 2025 è stato inaugurato il camminamento di ronda sulle mura, primo percorso percorribile in quota nella storia della città. Dal giorno dell'inaugurazione alla fine di settembre 2025, 3.843 visitatori hanno già percorso le mura.",
+    immagini: [WM("Città Murata 07.jpg"), WM("Centro storico di Castelfranco Veneto.jpg")],
+    storia: "Edificate tra il 1195 e il 1199 dai Trevigiani come avamposto difensivo contro Padova, le mura di Castelfranco sono tra le meglio conservate del Veneto. Il perimetro è un quadrato quasi perfetto — fatto rarissimo nell'architettura militare medievale — ancora cinto da un fossato pieno d'acqua, con quattro torri d'angolo e due porte d'accesso lungo un circuito di circa 860 metri.\n\nDal 2025 è percorribile il camminamento di ronda in quota, il primo nella storia della città: regala una vista inedita sui tetti del centro, sulla pianura e, nelle giornate limpide, sulle Prealpi.",
     pratico: {
-      orari: "Mar–Gio: 10:00–13:00 | Ven–Dom: 10:00–18:00",
-      costo: "Intero 3€ | Ridotto per minori, over 65, scuole | Residenti GRATIS",
-      accesso: "Ingresso da Via Borgo Treviso o Torre del Giorgione | Tel. 0423/735624",
-      tip: "Camminamento inaugurato nel 2025; biglietto cumulativo Mura+Torre 5€ (ridotto 3€), incluso nella Castelfranco Card."
+      orari: "Mar–Gio 10–13 · Ven–Dom 10–18",
+      costo: "Intero 3€ · Residenti gratis",
+      accesso: "Ingresso da Torre Civica / Via Borgo Treviso · Tel. 0423 735624",
+      tip: "Biglietto cumulativo Mura + Torre 5€ (ridotto 3€), incluso nella Castelfranco Card. Al tramonto la luce sul fossato è magnifica."
     }
   },
   {
-    id: "torre",
+    id: "torre", cat: "monumento", simbolo: "T",
     nome: "Torre Civica",
-    categoria: "Monumento · Panorama · 43 metri",
-    colore: "#b8860b",
-    simbolo: "T",
-    lat: 45.671648, lng: 11.927671,
-    immagini: [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Castelfranco%20Veneto%20-%20Torre%20di%20Porta%20Treviso%20-%202023-09-30%2013-27-59%20001.jpg"
-    ],
-    storia: "La Torre Civica, simbolo della città da otto secoli, costituisce la parte più rilevante della complessa struttura fortificata. Si erge a metà della cortina muraria orientale ed è detta anche Torre Davanti o Torre Franca. In origine della stessa altezza delle torri d'angolo, con l'aggiunta della cella campanaria all'inizio della dominazione veneziana raggiunge 43 metri di altezza.\n\nIl carro affrescato sulla volta della porta di ingresso ricorda la dominazione carrarese, mentre il quadrante azzurro dell'orologio e il leone di San Marco testimoniano la lunga dominazione veneziana.",
+    sottocat: "Torre dell'orologio · 43 metri · panorama a 360°",
+    lat: 45.6716505, lng: 11.9276477,
+    immagini: [WM("Castelfranco Veneto - Torre di Porta Treviso - 2023-09-30 13-27-59 001.jpg"), WM("Centro storico di Castelfranco Veneto.jpg")],
+    storia: "Simbolo della città da otto secoli, la Torre Civica (o Torre dell'Orologio) si erge sulla cortina muraria orientale, sopra la Porta di Treviso. In origine alta come le torri d'angolo, raggiunse i 43 metri con l'aggiunta della cella campanaria all'inizio della dominazione veneziana.\n\nSotto la volta della porta è ancora visibile il carro affrescato che ricorda la signoria dei Da Carrara, mentre il quadrante azzurro dell'orologio e il Leone di San Marco raccontano i secoli sotto la Serenissima.",
     pratico: {
-      orari: "Sab–Dom: 10:00–18:00 (marzo–novembre) | Feriali su prenotazione",
-      costo: "Intero 3€ | Ridotto 1,5€ | Cumulativo Mura+Torre 5€ (ridotto 3€)",
-      accesso: "Via Riccati, 11 | Tel. 0423/735624 | torre@comune.castelfranco-veneto.tv.it",
-      tip: "Salita di circa 100 gradini con vista a 360° sulla pianura veneta e sulle Prealpi."
+      orari: "Sab–Dom 10–18 (mar–nov) · feriali su prenotazione",
+      costo: "Intero 3€ · Ridotto 1,5€ · Cumulativo Mura+Torre 5€",
+      accesso: "Via Riccati 11 · Tel. 0423 735624",
+      tip: "Circa 100 gradini fino alla sommità: il punto panoramico migliore della città."
     }
   },
   {
-    id: "duomo",
+    id: "porta-cittadella", cat: "monumento", simbolo: "C",
+    nome: "Porta di Cittadella",
+    sottocat: "Porta occidentale del castello · sec. XIII",
+    lat: 45.671730, lng: 11.925000,
+    immagini: [WM("Città Murata 07.jpg")],
+    storia: "Il castello aveva in origine due soli accessi, allineati lungo l'asse principale: la Porta di Treviso a oriente e, di fronte, la Porta di Cittadella a occidente, così chiamata perché rivolta verso la vicina città murata di Cittadella.\n\nVarcandola si imboccava la strada che collega ancora oggi le due rivali murate della pianura veneta, nate quasi in contemporanea alla fine del XII secolo come fortezze contrapposte.",
+    pratico: {
+      orari: "Sempre accessibile",
+      costo: "Gratuito",
+      accesso: "Lato ovest delle mura, verso Borgo Pieve",
+      tip: "Da qui parte la passeggiata lungo gli Spalti occidentali, la più tranquilla del circuito."
+    }
+  },
+  {
+    id: "duomo", cat: "culto", simbolo: "D",
     nome: "Duomo di Santa Maria Assunta e San Liberale",
-    categoria: "Luogo di culto · Pala di Giorgione (1503–1504)",
-    colore: "#b8860b",
-    simbolo: "D",
+    sottocat: "Luogo di culto · Pala di Giorgione (1503–04)",
     lat: 45.670800, lng: 11.926759,
-    immagini: [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Giorgione%20-%20Pala%20di%20Castelfranco.jpg"
-    ],
-    storia: "Nel Duomo si conserva la Pala di Castelfranco, commissionata da Tuzio Costanzo per la cappella di famiglia in memoria del figlio Matteo. L'opera, databile tra 1503 e 1504, raffigura la Madonna in trono con il Bambino, san Francesco e san Nicasio, in uno spazio luminoso aperto sul paesaggio. È una delle opere più celebri e più enigmatiche di Giorgione.",
+    immagini: [WM("Duomo (12723641465).jpg"), WM("Giorgione - Pala di Castelfranco.jpg")],
+    storia: "Ricostruito nel Settecento su progetto di Francesco Maria Preti, il Duomo custodisce la celeberrima Pala di Castelfranco, commissionata da Tuzio Costanzo per la cappella di famiglia in memoria del figlio Matteo.\n\nDipinta da Giorgione tra il 1503 e il 1504, raffigura la Madonna in trono col Bambino tra san Francesco e san Nicasio, sospesa in un paesaggio luminoso: una delle opere più enigmatiche e amate del Rinascimento. Negli altri altari spiccano tele di Jacopo Bassano, Veronese e Palma il Giovane.",
     pratico: {
-      orari: "Ingresso libero | Visite guidate 'Chiese Aperte' nei fine settimana selezionati",
-      costo: "Ingresso libero",
-      accesso: "Vicolo del Cristo 14 | www.chiesacastelfranco.it",
-      tip: "Il trono della Madonna è volutamente innalzato in modo insolito, per creare una scena quasi sospesa nel paesaggio."
+      orari: "Ingresso libero (rispettando le funzioni)",
+      costo: "Gratuito",
+      accesso: "Piazza San Liberale · www.chiesacastelfranco.it",
+      tip: "Il trono della Madonna è volutamente innalzato in modo insolito, per sospendere la scena nel paesaggio."
     }
   },
   {
-    id: "giorgione",
+    id: "cristo", cat: "culto", simbolo: "✝",
+    nome: "Chiesetta del Cristo",
+    sottocat: "Oratorio · accanto al Duomo",
+    lat: 45.670730, lng: 11.926980,
+    immagini: [],
+    storia: "A fianco del Duomo, lungo il vicolo che ne porta il nome, si trova la piccola Chiesetta del Cristo, raccolto oratorio molto caro alla devozione cittadina.\n\nPoco distante sopravvivono la Torre dei Morti e il suggestivo Ponte dei Vivi e dei Morti, tracce dell'antico ospedale e del cimitero che un tempo affiancavano la chiesa: un angolo silenzioso e fuori dal tempo a pochi passi dalla piazza.",
+    pratico: {
+      orari: "Aperture saltuarie e durante le celebrazioni",
+      costo: "Gratuito",
+      accesso: "Vicolo del Cristo, lato sud del Duomo",
+      tip: "Cerca il Ponte dei Vivi e dei Morti: uno degli scorci più fotografati e meno conosciuti del centro."
+    }
+  },
+  {
+    id: "giorgione", cat: "museo", simbolo: "G",
     nome: "Museo Casa Giorgione",
-    categoria: "Museo · Arte rinascimentale · Fregio originale",
-    colore: "#8b1a1a",
-    simbolo: "G",
-    lat: 45.670973, lng: 11.926941,
-    immagini: [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Giorgione%20063.jpg"
-    ],
-    storia: "Il Museo Casa Giorgione è allestito nella casa dove, per tradizione, nacque Giorgione. Il museo conserva il celebre Fregio, affresco parietale, unica opera del pittore ancora in situ. Il percorso espositivo ricostruisce la vita e il genio dell'artista con materiali, immagini e approfondimenti sulla sua produzione.",
+    sottocat: "Museo · Casa natale · il Fregio originale",
+    lat: 45.6709662, lng: 11.9270485,
+    immagini: [WM("Giorgione 063.jpg"), WM("Centro storico di Castelfranco Veneto.jpg")],
+    storia: "Ospitato nella casa quattrocentesca dove la tradizione vuole sia nato Giorgione (Casa Pellizzari), il museo conserva il celebre Fregio: un fascia affrescata con strumenti delle arti meccaniche e liberali, unica pittura murale del maestro giunta fino a noi e ancora nel suo luogo originario.\n\nIl percorso ricostruisce la vita e il genio dell'artista, tra Castelfranco e Venezia, con materiali multimediali e approfondimenti sulla sua rivoluzione cromatica.",
     pratico: {
-      orari: "Mar–Gio: 10:00–13:00 (biglietteria chiude 12:30) | Ven–Dom: 10:00–18:00 (biglietteria chiude 17:30) | Chiuso lun, Natale, 1º gennaio, Pasqua",
-      costo: "Intero 7€ | Ridotto 5€ | Minori 1€ | Famiglia 12€ | Gratis: bambini ≤6, disabili, residenti a Castelfranco (senza mostre temporanee)",
-      accesso: "Piazza San Liberale | Tel. 0423/725022 | info@museocasagiorgione.it",
-      tip: "Il Fregio è l'unica pittura murale di Giorgione arrivata fino a noi."
+      orari: "Mar–Gio 10–13 · Ven–Dom 10–18 · chiuso lunedì",
+      costo: "Intero 7€ · Ridotto 5€ · Famiglia 12€ · Residenti gratis",
+      accesso: "Piazza San Liberale · Tel. 0423 725022",
+      tip: "Il Fregio è l'unica pittura murale di Giorgione arrivata fino a noi: non perdertelo."
     }
   },
   {
-    id: "teatro",
+    id: "teatro", cat: "monumento", simbolo: "A",
     nome: "Teatro Accademico",
-    categoria: "Teatro barocco · 1746 · Francesco Maria Preti",
-    colore: "#b8860b",
-    simbolo: "A",
-    lat: 45.671816, lng: 11.925866,
-    immagini: [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Castelfranco%20Veneto%20-%20Torre%20di%20Porta%20Treviso%20-%202023-09-30%2013-27-59%20001.jpg"
-    ],
-    storia: "Il Teatro Accademico è un capolavoro di architettura settecentesca progettato nel 1746 da Francesco Maria Preti. Il teatro a ferro di cavallo con tre ordini di palchi è uno dei più belli della Marca Trevigiana e ospita stagioni teatrali, concerti e iniziative culturali.",
+    sottocat: "Teatro · 1746 · Francesco Maria Preti",
+    lat: 45.6718860, lng: 11.9261688,
+    immagini: [WM("Centro storico di Castelfranco Veneto.jpg")],
+    storia: "Capolavoro dell'architettura settecentesca, il Teatro Accademico fu progettato nel 1746 da Francesco Maria Preti, lo stesso architetto del Duomo. La sala a ferro di cavallo con tre ordini di palchi è tra le più eleganti della Marca Trevigiana.\n\nNato come sede dell'Accademia dei Filoglotti, ospita ancora oggi una vivace stagione di prosa, concerti e iniziative culturali.",
     pratico: {
-      orari: "Sab–Dom: 11:00–13:00 e 15:00–19:00 (estate) | Visite guidate su prenotazione",
-      costo: "Ingresso libero durante le aperture | Spettacoli a pagamento",
-      accesso: "Via Giuseppe Garibaldi, 4 | Tel. 392/22979991 o 334/3931418",
-      tip: "Ogni domenica pomeriggio il teatro apre con attività e spettacoli dedicati al pubblico."
+      orari: "Visite sab–dom in stagione · spettacoli da programma",
+      costo: "Visite spesso libere · spettacoli a pagamento",
+      accesso: "Via Garibaldi 4 · Vicolo dei Vetri",
+      tip: "Se trovi aperto, affacciati in sala: l'acustica e le decorazioni dei palchi valgono la sosta."
     }
   },
   {
-    id: "bolasco",
-    nome: "Villa Parco Bolasco",
-    categoria: "Parco storico · 13 ettari · Università di Padova",
-    colore: "#2e6b3a",
-    simbolo: "B",
-    lat: 45.672412, lng: 11.933561,
-    immagini: [
-      "https://www.villaparcobolasco.it/wp-content/uploads/2021/08/parco_01.jpg"
-    ],
-    storia: "Il Parco Bolasco è uno dei più estesi parchi storici del Veneto, con oltre 13 ettari di verde. Il complesso, realizzato nell'Ottocento in stile romantico-paesaggistico, comprende Villa Bolasco, alberi monumentali, laghetti artificiali, tempietto e finte rovine. Oggi è collegato all'Università degli Studi di Padova.",
+    id: "sangiacomo", cat: "culto", simbolo: "S",
+    nome: "Chiesa e Convento di San Giacomo",
+    sottocat: "Luogo di culto · Borgo Treviso",
+    lat: 45.671717, lng: 11.929168,
+    immagini: [],
+    storia: "Appena fuori dalle mura, lungo il Borgo Treviso, sorgono la chiesa e l'ex convento di San Giacomo. Allontanandosi di poco dal centro affollato, si scopre un complesso religioso ricco di storia, legato alla vita devozionale del borgo che si sviluppò oltre la Porta di Treviso.\n\nÈ una tappa ideale per chi vuole completare la passeggiata uscendo dal quadrato delle mura verso est.",
     pratico: {
-      orari: "Sab–Dom e festivi: 10:00–19:00 in stagione, con ultimo ingresso 45 minuti prima della chiusura",
-      costo: "Intero 5€ | Famiglia 13€ | Scuole 2€ | Gratis per alcune categorie e residenti",
-      accesso: "Via Ospedale, Castelfranco Veneto | Tel. 049/8273939 | prenotazioni@villaparcobolasco.it",
-      tip: "Le visite guidate sono organizzate dall'Orto botanico dell'Università di Padova e durano 90 minuti."
+      orari: "Secondo gli orari delle celebrazioni",
+      costo: "Gratuito",
+      accesso: "Via San Giacomo, Borgo Treviso",
+      tip: "Combinala con una passeggiata lungo il Borgo Treviso, l'antica via dei mercanti in arrivo da est."
     }
   },
   {
-    id: "piazza",
+    id: "bolasco", cat: "natura", simbolo: "B",
+    nome: "Villa e Parco Revedin Bolasco",
+    sottocat: "Parco storico romantico · 7 ettari · Università di Padova",
+    lat: 45.6724368, lng: 11.9335724,
+    immagini: ["https://www.villaparcobolasco.it/wp-content/uploads/2021/08/parco_01.jpg"],
+    storia: "Realizzata tra il 1852 e il 1865 su progetto di Giambattista Meduna per il conte Francesco Revedin, primo sindaco di Castelfranco, la villa custodisce la sala da ballo affrescata da Giacomo Casa e le celebri scuderie.\n\nIl cuore del complesso è però il parco romantico all'inglese: tra alberi monumentali, specchi d'acqua, collinette artificiali e prati fioriti, il paesaggio si trasforma in una cartolina vivente. Donato all'Università di Padova dall'ultima proprietaria, Renata Mazza Bolasco, è stato restaurato e riaperto al pubblico.",
+    pratico: {
+      orari: "Sab–Dom e festivi 10–19 in stagione (ultimo ingresso 45 min prima)",
+      costo: "Intero 5€ · Famiglia 13€ · gratis per alcune categorie",
+      accesso: "Via Regina Cornaro / Borgo Treviso · prenotazioni@villaparcobolasco.it",
+      tip: "Le visite guidate dell'Orto Botanico di Padova durano circa 90 minuti: cerca gli alberi secolari."
+    }
+  },
+  {
+    id: "piazza", cat: "monumento", simbolo: "P",
     nome: "Piazza Giorgione",
-    categoria: "Piazza · Cuore della città",
-    colore: "#b8860b",
-    simbolo: "P",
+    sottocat: "Piazza · cuore della città · mercato del giovedì",
     lat: 45.672903, lng: 11.925150,
-    immagini: [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Castelfranco%20Veneto%20-%20Torre%20di%20Porta%20Treviso%20-%202023-09-30%2013-27-59%20001.jpg"
-    ],
-    storia: "Piazza Giorgione è il cuore pulsante della città, circondata da portici e palazzi storici. La statua del pittore al centro della piazza richiama il legame profondo tra Castelfranco e Giorgione. Qui si tengono il mercato settimanale e le principali manifestazioni cittadine.",
+    immagini: [WM("Piazza Giorgione (6073073149).jpg"), WM("Radiofiera - Piazza Giorgione, Castelfranco Veneto (TV) - 25 aprile 2010.jpg")],
+    storia: "Ampia e luminosa, Piazza Giorgione è il salotto della città: circondata da portici, caffè e palazzi storici, si distende appena fuori dall'angolo nord-est delle mura.\n\nQui si tiene il mercato del giovedì mattina — appuntamento tradizionale da generazioni — e qui si concentrano le principali manifestazioni cittadine, dalle fiere alle rievocazioni storiche.",
     pratico: {
       orari: "Sempre aperta",
       costo: "Gratuito",
-      accesso: "Centro storico, lato est",
-      tip: "Il mercato del giovedì mattina è un appuntamento tradizionale molto frequentato."
+      accesso: "Centro storico, lato nord-est delle mura",
+      tip: "Il giovedì mattina la piazza si riempie di bancarelle: perfetta per un caffè sotto i portici."
     }
   },
   {
-    id: "statua",
-    nome: "Statua del Giorgione",
-    categoria: "Monumento · Punto centrale",
-    colore: "#b8860b",
-    simbolo: "S",
+    id: "statua", cat: "monumento", simbolo: "★",
+    nome: "Monumento a Giorgione",
+    sottocat: "Statua · omaggio al pittore",
     lat: 45.672948, lng: 11.927118,
-    immagini: [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Castelfranco%20Veneto%20-%20Torre%20di%20Porta%20Treviso%20-%202023-09-30%2013-27-59%20001.jpg"
-    ],
-    storia: "La statua ricorda il legame tra Castelfranco Veneto e Giorgione, il più celebre figlio della città. È un punto simbolico del centro urbano e un riferimento immediato per l'orientamento nella piazza.",
+    immagini: [WM("Piazza Giorgione (6073073149).jpg")],
+    storia: "Il monumento celebra Giorgio da Castelfranco, detto Giorgione, il figlio più illustre della città e tra i massimi pittori del Rinascimento veneto. Punto di riferimento immediato per chi passeggia in centro, ricorda quanto profondo sia il legame tra Castelfranco e il suo genio della pittura tonale.",
     pratico: {
       orari: "Sempre visibile",
       costo: "Gratuito",
-      accesso: "Centro cittadino",
-      tip: "È uno dei riferimenti più semplici per chi visita il centro storico a piedi."
+      accesso: "Centro cittadino, presso le mura",
+      tip: "Ottimo punto d'incontro e di orientamento per iniziare il giro a piedi."
     }
   },
   {
-    id: "fossato",
+    id: "fossato", cat: "chicca", simbolo: "F",
     nome: "Fossato delle Mura & Spalti",
-    categoria: "Chicca · Passeggiata · Fossato con acqua",
-    colore: "#3a5a8b",
-    simbolo: "F",
+    sottocat: "Passeggiata · fossato con acqua",
     lat: 45.670842, lng: 11.928644,
-    immagini: [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Castelfranco%20Veneto%20-%20Torre%20di%20Porta%20Treviso%20-%202023-09-30%2013-27-59%20001.jpg"
-    ],
-    storia: "Il fossato che circonda le mura è ancora alimentato d'acqua e costituisce uno degli elementi più caratteristici del sistema difensivo. Il percorso pedonale degli Spalti offre una passeggiata panoramica con vista sulle mura dall'esterno.",
+    immagini: [WM("Città Murata 07.jpg")],
+    storia: "Il fossato che abbraccia le mura è ancora alimentato d'acqua ed è tra gli elementi più rari e scenografici del sistema difensivo veneto. Il percorso pedonale degli Spalti corre tutt'intorno, regalando la vista delle mura riflesse e l'incontro con anatre, salici e angoli verdi.",
     pratico: {
       orari: "Sempre aperto",
       costo: "Gratuito",
-      accesso: "Percorso intorno alle mura",
-      tip: "Al tramonto il riflesso delle mura nell'acqua è particolarmente suggestivo."
+      accesso: "Anello pedonale intorno alle mura",
+      tip: "Al tramonto il riflesso delle mura nell'acqua è lo scatto da non perdere."
     }
   },
   {
-    id: "conservatorio",
-    nome: "Conservatorio di Musica 'Agostino Steffani'",
-    categoria: "Chicca musicale · Barocco",
-    colore: "#3a5a8b",
-    simbolo: "C",
+    id: "conservatorio", cat: "chicca", simbolo: "♪",
+    nome: "Conservatorio “Agostino Steffani”",
+    sottocat: "Istituto musicale · concerti aperti",
     lat: 45.672034, lng: 11.924817,
-    immagini: [],
-    storia: "Il Conservatorio è intitolato ad Agostino Steffani, compositore e diplomatico nato a Castelfranco nel 1654. Ospita attività didattiche e concerti aperti al pubblico durante l'anno accademico.",
+    immagini: [WM("Lapide Agostino Steffani.jpg")],
+    storia: "Il conservatorio è intitolato ad Agostino Steffani, compositore e diplomatico nato a Castelfranco nel 1654, figura cosmopolita ammirata in tutta Europa.\n\nDurante l'anno accademico l'istituto apre le porte con saggi e concerti, spesso a ingresso libero: un'occasione preziosa per ascoltare musica antica e barocca nel suo contesto.",
     pratico: {
-      orari: "Concerti pubblici durante l'anno accademico",
-      costo: "Generalmente ingresso libero",
-      accesso: "Via Borgo Padova",
-      tip: "I concerti di musica antica sono spesso a ingresso libero."
+      orari: "Concerti durante l'anno accademico",
+      costo: "Spesso ingresso libero",
+      accesso: "Borgo Pieve / centro storico",
+      tip: "Controlla il cartellone: i concerti di musica antica sono piccole gemme spesso gratuite."
     }
   },
   {
-    id: "giardini",
-    nome: "Giardini attorno le mura",
-    categoria: "Chicca · Verde urbano",
-    colore: "#2e6b3a",
-    simbolo: "J",
+    id: "giardini", cat: "natura", simbolo: "J",
+    nome: "Giardini sui Bastioni",
+    sottocat: "Verde urbano · rassegna Oltremura",
     lat: 45.672405, lng: 11.927381,
-    immagini: [],
-    storia: "I giardini ricavati sui bastioni delle mura offrono una prospettiva inedita sul sistema fortificato. Sono un luogo tranquillo per una sosta e, in estate, ospitano iniziative legate alla rassegna Oltremura.",
+    immagini: [WM("Centro storico di Castelfranco Veneto.jpg")],
+    storia: "I giardini ricavati sui bastioni offrono una prospettiva inedita sul sistema fortificato, guardando il centro dall'alto delle mura. Sono un angolo tranquillo per una sosta e, d'estate, fanno da cornice alle serate della rassegna Oltremura, tra musica, parole e spettacoli all'aperto.",
     pratico: {
       orari: "Sempre aperti",
       costo: "Gratuito",
-      accesso: "Lato sud-ovest delle mura",
-      tip: "Uno dei punti più piacevoli per una passeggiata serale."
+      accesso: "Lungo il circuito delle mura",
+      tip: "Tra i punti più piacevoli per una passeggiata serale al fresco."
     }
   }
 ];
 
+/* ============================================================
+   MAPPA
+   ============================================================ */
 const map = L.map("map", {
-  center: [45.6719, 11.9271],
+  center: [45.6718, 11.9272],
   zoom: 16,
   zoomControl: false,
   attributionControl: true
 });
 
 L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
   subdomains: "abcd",
   maxZoom: 19
 }).addTo(map);
 
+/* mura: tracciato reale da Overpass (con fallback silenzioso) */
 async function caricaMura() {
-  const query = `
-    [out:json][timeout:25];
-    (
-      way["historic"="city_wall"](45.668,11.926,45.677,11.937);
-      way["barrier"="city_wall"](45.668,11.926,45.677,11.937);
-      relation["historic"="city_wall"](45.668,11.926,45.677,11.937);
-      way["historic"="castle"](45.668,11.926,45.677,11.937);
-      way["man_made"="embankment"]["name"~"[Mm]ura"](45.668,11.926,45.677,11.937);
-    );
-    (._;>;);
-    out body;
-  `;
+  const q = `[out:json][timeout:25];(way["historic"="city_wall"](45.668,11.922,45.677,11.932);way["barrier"="city_wall"](45.668,11.922,45.677,11.932);relation["historic"="city_wall"](45.668,11.922,45.677,11.932););(._;>;);out body;`;
   try {
-    const resp = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      body: "data=" + encodeURIComponent(query)
-    });
-    const data = await resp.json();
+    const r = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: "data=" + encodeURIComponent(q) });
+    const data = await r.json();
     const nodes = {};
-    data.elements.filter(e => e.type === "node").forEach(n => { nodes[n.id] = [n.lat, n.lon]; });
-    const ways = data.elements.filter(e => e.type === "way");
-
-    ways.forEach(way => {
-      const coords = way.nodes.map(nid => nodes[nid]).filter(Boolean);
-      if (coords.length < 2) return;
-      L.polyline(coords, { color: "#3d2a00", weight: 14, opacity: 0.25, lineCap: "round", lineJoin: "round" }).addTo(map);
-      L.polyline(coords, { color: "#8b6914", weight: 7, opacity: 0.95, lineCap: "round", lineJoin: "round" }).addTo(map);
-      L.polyline(coords, { color: "#f0c040", weight: 2, opacity: 0.7, lineCap: "round", lineJoin: "round", dashArray: "6,4" }).addTo(map);
+    data.elements.filter(e => e.type === "node").forEach(n => nodes[n.id] = [n.lat, n.lon]);
+    data.elements.filter(e => e.type === "way").forEach(w => {
+      const c = w.nodes.map(id => nodes[id]).filter(Boolean);
+      if (c.length < 2) return;
+      L.polyline(c, { color: "#3d2a00", weight: 13, opacity: 0.22, lineCap: "round", lineJoin: "round" }).addTo(map);
+      L.polyline(c, { color: "#8b6914", weight: 6, opacity: 0.9, lineCap: "round", lineJoin: "round" }).addTo(map);
+      L.polyline(c, { color: "#f0c040", weight: 2, opacity: 0.7, dashArray: "6,4", lineCap: "round" }).addTo(map);
     });
-  } catch(e) {
-    console.warn("Overpass non raggiungibile, mura non caricate:", e);
-  }
+  } catch (e) { console.warn("Overpass non raggiungibile:", e); }
 }
 caricaMura();
 
-L.control.zoom({ position: "bottomright" }).addTo(map);
+/* gradienti dei pin, uno per categoria */
+const defs = document.getElementById("pin-defs");
+Object.entries(CATEGORIE).forEach(([k, c]) => {
+  defs.insertAdjacentHTML("beforeend",
+    `<radialGradient id="g-${k}" cx="38%" cy="30%" r="75%">
+       <stop offset="0%" stop-color="${mix(c.colore, '#ffffff', 0.45)}"/>
+       <stop offset="60%" stop-color="${c.colore}"/>
+       <stop offset="100%" stop-color="${mix(c.colore, '#1b1009', 0.45)}"/>
+     </radialGradient>`);
+});
+function mix(hex, withHex, amt) {
+  const a = hex.match(/\w\w/g).map(x => parseInt(x, 16));
+  const b = withHex.match(/\w\w/g).map(x => parseInt(x, 16));
+  return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * amt).toString(16).padStart(2, "0")).join("");
+}
 
-function creaIcona(simbolo, colore) {
-  const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
-    <defs>
-      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${colore}"/>
-        <stop offset="100%" stop-color="#5f4710"/>
-      </linearGradient>
-    </defs>
-    <circle cx="18" cy="18" r="16" fill="url(#g)" stroke="#2c1a0e" stroke-width="2.2"/>
-    <text x="18" y="22" text-anchor="middle"
-      font-family="Cinzel, serif" font-size="14" font-weight="700"
-      fill="#f2e8c9">${simbolo}</text>
-  </svg>`;
-  return L.divIcon({
-    className: "",
-    html: `<div style="width:36px;height:36px;">${svg}</div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 36],
-    popupAnchor: [0, -36]
+function pinIcon(l, i) {
+  const c = CATEGORIE[l.cat];
+  const html =
+    `<div class="pin" style="--c:${c.colore};animation-delay:${Math.min(i * 55, 700)}ms">
+       <svg viewBox="0 0 40 52" width="40" height="52">
+         <path d="M20 1.5C10 1.5 2.5 9 2.5 19c0 12.5 17.5 31 17.5 31S37.5 31.5 37.5 19C37.5 9 30 1.5 20 1.5Z"
+               fill="url(#g-${l.cat})" stroke="#1b1009" stroke-width="2"/>
+         <circle cx="20" cy="19" r="11" fill="#f4ecd2" stroke="#1b1009" stroke-width="1.3"/>
+         <text x="20" y="24.2" text-anchor="middle" font-family="Cinzel, serif" font-weight="700" font-size="15" fill="#1b1009">${l.simbolo}</text>
+       </svg>
+     </div>`;
+  return L.divIcon({ className: "pin-wrap", html, iconSize: [40, 52], iconAnchor: [20, 50], popupAnchor: [0, -46] });
+}
+
+const markers = {};
+luoghi.forEach((l, i) => {
+  const m = L.marker([l.lat, l.lng], { icon: pinIcon(l, i), title: l.nome, keyboard: false }).addTo(map);
+  m.on("click", () => openSheet(l.id));
+  markers[l.id] = m;
+});
+
+const ALL_BOUNDS = L.latLngBounds(luoghi.map(l => [l.lat, l.lng])).pad(0.18);
+map.fitBounds(ALL_BOUNDS);
+
+/* ============================================================
+   FILTRI + RICERCA + INDICE
+   ============================================================ */
+let activeCat = "tutti";
+const chipsEl = document.getElementById("chips");
+const searchEl = document.getElementById("search");
+const listEl = document.getElementById("idx-list");
+const emptyEl = document.getElementById("idx-empty");
+const countEl = document.getElementById("count");
+
+function buildChips() {
+  const make = (cat, label, color) =>
+    `<button class="chip${cat === 'tutti' ? ' active' : ''}" data-cat="${cat}">${color ? `<i style="background:${color}"></i>` : '✦'} ${label}</button>`;
+  let h = make("tutti", "Tutti");
+  Object.entries(CATEGORIE).forEach(([k, c]) => h += make(k, c.nome, c.colore));
+  chipsEl.innerHTML = h;
+  chipsEl.querySelectorAll(".chip").forEach(ch => ch.onclick = () => {
+    activeCat = ch.dataset.cat;
+    chipsEl.querySelectorAll(".chip").forEach(x => x.classList.toggle("active", x === ch));
+    applyFilter();
   });
 }
 
-luoghi.forEach(luogo => {
-  const marker = L.marker([luogo.lat, luogo.lng], { icon: creaIcona(luogo.simbolo, luogo.colore) }).addTo(map);
-  marker.on("click", () => apriPopup(luogo));
+function matches(l) {
+  const q = searchEl.value.trim().toLowerCase();
+  const okCat = activeCat === "tutti" || l.cat === activeCat;
+  const okQ = !q || (l.nome + " " + l.sottocat + " " + CATEGORIE[l.cat].nome).toLowerCase().includes(q);
+  return okCat && okQ;
+}
+
+function applyFilter() {
+  let n = 0, html = "";
+  luoghi.forEach(l => {
+    const vis = matches(l);
+    const el = markers[l.id].getElement();
+    if (el) el.style.display = vis ? "" : "none";
+    if (vis) {
+      n++;
+      const c = CATEGORIE[l.cat];
+      html +=
+        `<button class="idx-item" data-id="${l.id}">
+           <span class="idx-pin" style="--c:${c.colore}"><span>${l.simbolo}</span></span>
+           <span class="idx-txt">
+             <span class="idx-name">${l.nome}</span>
+             <span class="idx-cat">${c.icona} ${l.sottocat}</span>
+           </span>
+         </button>`;
+    }
+  });
+  listEl.innerHTML = html;
+  emptyEl.style.display = n ? "none" : "block";
+  countEl.textContent = n + (n === 1 ? " luogo" : " luoghi");
+  listEl.querySelectorAll(".idx-item").forEach(it =>
+    it.onclick = () => { closeDrawer(); flyAndOpen(it.dataset.id); });
+}
+
+searchEl.addEventListener("input", applyFilter);
+buildChips();
+applyFilter();
+
+/* ============================================================
+   DRAWER
+   ============================================================ */
+const drawer = document.getElementById("drawer");
+const scrim = document.getElementById("scrim");
+function openDrawer() { drawer.classList.add("open"); scrim.classList.add("open"); }
+function closeDrawer() { drawer.classList.remove("open"); scrim.classList.remove("open"); }
+document.getElementById("menu-btn").onclick = openDrawer;
+document.getElementById("drawer-close").onclick = closeDrawer;
+scrim.onclick = closeDrawer;
+
+/* ============================================================
+   FAB
+   ============================================================ */
+document.getElementById("zoom-in").onclick = () => map.zoomIn();
+document.getElementById("zoom-out").onclick = () => map.zoomOut();
+document.getElementById("home-btn").onclick = () => map.flyToBounds(ALL_BOUNDS, { duration: 0.7 });
+
+let meMarker = null;
+document.getElementById("locate-btn").onclick = () => {
+  toast("Cerco la tua posizione…");
+  map.locate({ setView: true, maxZoom: 17, enableHighAccuracy: true });
+};
+map.on("locationfound", e => {
+  if (meMarker) map.removeLayer(meMarker);
+  meMarker = L.circleMarker(e.latlng, { radius: 8, color: "#1b6fd9", weight: 3, fillColor: "#3a8bff", fillOpacity: 0.85 }).addTo(map);
+  toast("Sei qui!");
 });
+map.on("locationerror", () => toast("Posizione non disponibile."));
 
-let galleryIndex = 0;
-let galleryImgs = [];
+/* ============================================================
+   SHEET (dettaglio luogo)
+   ============================================================ */
+const overlay = document.getElementById("sheet-overlay");
+let gi = 0, gImgs = [];
+let activeId = null;
 
-function apriPopup(luogo) {
-  galleryImgs = luogo.immagini || [];
-  galleryIndex = 0;
+function placeholder(l) {
+  const c = CATEGORIE[l.cat];
+  const svg =
+`<svg xmlns='http://www.w3.org/2000/svg' width='680' height='280' viewBox='0 0 680 280'>
+  <defs>
+    <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0' stop-color='${mix(c.colore, '#1b1009', 0.15)}'/>
+      <stop offset='1' stop-color='${mix(c.colore, '#1b1009', 0.55)}'/>
+    </linearGradient>
+  </defs>
+  <rect width='680' height='280' fill='url(#bg)'/>
+  <rect x='18' y='18' width='644' height='244' fill='none' stroke='${mix(c.colore, '#ffffff', 0.55)}' stroke-width='2' opacity='0.7'/>
+  <rect x='26' y='26' width='628' height='228' fill='none' stroke='${mix(c.colore, '#ffffff', 0.55)}' stroke-width='1' opacity='0.45'/>
+  <text x='340' y='150' text-anchor='middle' font-family='Cinzel, serif' font-weight='700' font-size='120' fill='${mix(c.colore, '#ffffff', 0.6)}' opacity='0.92'>${l.simbolo}</text>
+  <text x='340' y='210' text-anchor='middle' font-family='Cinzel, serif' font-size='20' letter-spacing='3' fill='#f3e9cd' opacity='0.9'>${CATEGORIE[l.cat].nome.toUpperCase()}</text>
+</svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
 
-  document.getElementById("popup-title").textContent = luogo.nome;
-  document.getElementById("popup-category").textContent = luogo.categoria;
-
-  const gallery = document.getElementById("popup-gallery");
-  gallery.querySelectorAll("img").forEach(i => i.remove());
-  const dots = document.getElementById("gallery-dots");
+function buildGallery(l) {
+  const gal = document.getElementById("gallery");
+  gal.querySelectorAll("img").forEach(i => i.remove());
+  const dots = document.getElementById("dots");
   dots.innerHTML = "";
+  gImgs = (l.immagini && l.immagini.length) ? l.immagini.slice() : [placeholder(l)];
+  gi = 0;
+  gImgs.forEach((src, idx) => {
+    const img = document.createElement("img");
+    img.src = src; img.alt = l.nome; img.loading = "lazy";
+    img.onerror = () => { img.onerror = null; img.src = placeholder(l); };
+    if (idx === 0) img.classList.add("active");
+    gal.insertBefore(img, gal.querySelector(".gnav.prev"));
+    const d = document.createElement("div");
+    d.className = "dot" + (idx === 0 ? " active" : "");
+    d.onclick = () => setSlide(idx);
+    dots.appendChild(d);
+  });
+  const multi = gImgs.length > 1;
+  document.getElementById("g-prev").style.display = multi ? "flex" : "none";
+  document.getElementById("g-next").style.display = multi ? "flex" : "none";
+  dots.style.display = multi ? "flex" : "none";
+}
+function setSlide(idx) {
+  const imgs = document.querySelectorAll("#gallery img");
+  const dots = document.querySelectorAll(".dot");
+  if (!imgs.length) return;
+  imgs[gi].classList.remove("active"); dots[gi].classList.remove("active");
+  gi = (idx + gImgs.length) % gImgs.length;
+  imgs[gi].classList.add("active"); dots[gi].classList.add("active");
+}
+document.getElementById("g-prev").onclick = () => setSlide(gi - 1);
+document.getElementById("g-next").onclick = () => setSlide(gi + 1);
 
-  if (galleryImgs.length === 0) {
-    gallery.style.height = "0";
-    gallery.style.display = "none";
-  } else {
-    gallery.style.height = "200px";
-    gallery.style.display = "block";
-    galleryImgs.forEach((src, idx) => {
-      const img = document.createElement("img");
-      img.src = src;
-      img.alt = luogo.nome;
-      img.onerror = () => { img.src = "https://via.placeholder.com/640x200/2c1a0e/daa520?text=Immagine+non+disponibile"; };
-      if (idx === 0) img.classList.add("active");
-      gallery.insertBefore(img, gallery.querySelector(".gallery-nav.prev"));
+function openSheet(id) {
+  const l = luoghi.find(x => x.id === id);
+  if (!l) return;
+  setActiveMarker(id);
+  const c = CATEGORIE[l.cat];
 
-      const dot = document.createElement("div");
-      dot.className = "gallery-dot" + (idx === 0 ? " active" : "");
-      dot.onclick = () => setGalleryIndex(idx);
-      dots.appendChild(dot);
-    });
-  }
+  document.getElementById("sheet-title").textContent = l.nome;
+  document.getElementById("sheet-chips").innerHTML =
+    `<span class="tag" style="background:${c.colore}">${c.icona} ${c.nome}</span>
+     <span class="subcat">${l.sottocat}</span>`;
 
-  let html = `<p class="popup-text">${luogo.storia.replace(/\n\n/g, '</p><p class="popup-text">')}</p>`;
-  html += `<div class="popup-section">`;
-  html += `<div class="popup-section-title">Informazioni pratiche</div>`;
-  html += `<div class="info-grid">`;
-  if (luogo.pratico.orari) html += `<div class="info-box"><div class="label">Orari</div><div class="value">${luogo.pratico.orari}</div></div>`;
-  if (luogo.pratico.costo) html += `<div class="info-box"><div class="label">Costi</div><div class="value">${luogo.pratico.costo}</div></div>`;
+  buildGallery(l);
+
+  const p = l.pratico;
+  let html = l.storia.split("\n\n").map(t => `<p class="text">${t}</p>`).join("");
+
+  html += `<div class="actions">
+      <a class="act primary" target="_blank" rel="noopener"
+         href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}">➤ Indicazioni</a>
+      <button class="act ghost" id="center-btn">◎ Sulla mappa</button>
+    </div>`;
+
+  html += `<div class="section"><div class="section-title">Informazioni pratiche</div><div class="grid">`;
+  if (p.orari) html += `<div class="box"><div class="label">Orari</div><div class="value">${p.orari}</div></div>`;
+  if (p.costo) html += `<div class="box"><div class="label">Costi</div><div class="value">${p.costo}</div></div>`;
   html += `</div>`;
-  if (luogo.pratico.accesso) html += `<p class="popup-text" style="margin-top:8px">${luogo.pratico.accesso}</p>`;
+  if (p.accesso) html += `<div class="box" style="margin-top:9px"><div class="label">Come arrivare</div><div class="value">${p.accesso}</div></div>`;
   html += `</div>`;
-  if (luogo.pratico.tip) {
-    html += `<div class="popup-section"><div class="popup-section-title">Suggerimento</div>`;
-    html += `<p class="popup-text">${luogo.pratico.tip}</p></div>`;
-  }
-  document.getElementById("popup-content").innerHTML = html;
 
-  const overlay = document.getElementById("popup-overlay");
+  if (p.tip) html += `<div class="section"><div class="section-title">Suggerimento</div><div class="tip text">${p.tip}</div></div>`;
+
+  document.getElementById("sheet-content").innerHTML = html;
+  const cb = document.getElementById("center-btn");
+  if (cb) cb.onclick = () => { closeSheet(); flyTo(id); };
+
   overlay.classList.add("open");
-  document.getElementById("popup-body").scrollTop = 0;
+  document.getElementById("sheet-body").scrollTop = 0;
+}
+function closeSheet() { overlay.classList.remove("open"); setActiveMarker(null); }
+
+function setActiveMarker(id) {
+  if (activeId && markers[activeId]) markers[activeId].getElement()?.classList.remove("is-active");
+  activeId = id;
+  if (id && markers[id]) markers[id].getElement()?.classList.add("is-active");
+}
+function flyTo(id) {
+  const l = luoghi.find(x => x.id === id); if (!l) return;
+  setActiveMarker(id);
+  map.flyTo([l.lat, l.lng], Math.max(map.getZoom(), 17), { duration: 0.7 });
+}
+function flyAndOpen(id) {
+  const l = luoghi.find(x => x.id === id); if (!l) return;
+  map.flyTo([l.lat, l.lng], Math.max(map.getZoom(), 17), { duration: 0.6 });
+  setTimeout(() => openSheet(id), 360);
 }
 
-function setGalleryIndex(idx) {
-  const imgs = document.querySelectorAll("#popup-gallery img");
-  const dots = document.querySelectorAll(".gallery-dot");
-  if (imgs.length === 0) return;
-  imgs[galleryIndex].classList.remove("active");
-  dots[galleryIndex].classList.remove("active");
-  galleryIndex = (idx + galleryImgs.length) % galleryImgs.length;
-  imgs[galleryIndex].classList.add("active");
-  dots[galleryIndex].classList.add("active");
-}
-
-document.getElementById("prev-img").onclick = () => setGalleryIndex(galleryIndex - 1);
-document.getElementById("next-img").onclick = () => setGalleryIndex(galleryIndex + 1);
-document.getElementById("popup-close").onclick = chiudiPopup;
-document.getElementById("popup-overlay").addEventListener("click", e => {
-  if (e.target === document.getElementById("popup-overlay")) chiudiPopup();
+document.getElementById("sheet-close").onclick = closeSheet;
+overlay.addEventListener("click", e => { if (e.target === overlay) closeSheet(); });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (overlay.classList.contains("open")) closeSheet();
+  else if (drawer.classList.contains("open")) closeDrawer();
 });
 
-function chiudiPopup() {
-  document.getElementById("popup-overlay").classList.remove("open");
-}
-
-let startY = 0;
-document.getElementById("popup-card").addEventListener("touchstart", e => { startY = e.touches[0].clientY; }, { passive: true });
-document.getElementById("popup-card").addEventListener("touchend", e => {
-  if (e.changedTouches[0].clientY - startY > 80) chiudiPopup();
+/* swipe-down per chiudere lo sheet (mobile) */
+let startY = 0, dragging = false;
+const sheet = document.getElementById("sheet");
+sheet.addEventListener("touchstart", e => {
+  if (document.getElementById("sheet-body").scrollTop <= 0) { startY = e.touches[0].clientY; dragging = true; }
+}, { passive: true });
+sheet.addEventListener("touchmove", e => {
+  if (!dragging) return;
+  const dy = e.touches[0].clientY - startY;
+  if (dy > 0) sheet.style.transform = `translateY(${dy}px)`;
+}, { passive: true });
+sheet.addEventListener("touchend", e => {
+  if (!dragging) return; dragging = false;
+  const dy = e.changedTouches[0].clientY - startY;
+  sheet.style.transform = "";
+  if (dy > 90) closeSheet();
 }, { passive: true });
 
-document.addEventListener("keydown", e => { if (e.key === "Escape") chiudiPopup(); });
+/* ============================================================
+   TOAST + SPLASH
+   ============================================================ */
+let toastT = null;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+function hideSplash() { document.getElementById("splash").classList.add("hidden"); }
+map.whenReady(() => setTimeout(hideSplash, 700));
+window.addEventListener("load", () => setTimeout(hideSplash, 900));
+setTimeout(hideSplash, 2600); // fallback
+
+/* stemma: fallback al glifo se l'immagine non carica */
+["crest", "splash-crest"].forEach(id => {
+  const img = document.getElementById(id);
+  img.onerror = () => {
+    img.style.display = "none";
+    const fb = id === "crest" ? document.getElementById("crest-fallback") : document.getElementById("splash-glyph");
+    if (fb) fb.style.display = "flex";
+  };
+});
 </script>
 </body>
 </html>
