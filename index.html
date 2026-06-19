@@ -33,7 +33,7 @@
     }
 
     /* ---------- MAP ---------- */
-    #map { position: absolute; inset: 0; z-index: 1; background: #cdбcad; background:#d9c7a6; }
+    #map { position: absolute; inset: 0; z-index: 1; background: #d9c7a6; }
     /* antique tint only on the tiles, so pins & overlays stay vivid */
     .leaflet-tile-pane { filter: sepia(42%) saturate(82%) brightness(0.96) contrast(1.05); }
     .leaflet-container { background: #d9c7a6; font-family: 'Crimson Text', serif; }
@@ -718,6 +718,21 @@ const luoghi = [
       accesso: "Percorribile da Castelfranco Veneto e dagli altri comuni · suisentieridegliezzelini.it",
       tip: "Adatto sia a piedi che in bicicletta: il tratto lungo il Lastego nella valle dei mulini è il più panoramico e suggestivo."
     }
+  },
+  {
+    id: "treville", cat: "chicca", simbolo: "K",
+    nome: "Motta Castrale di Treville",
+    sottocat: "Sito storico · castello medievale (sec. XI) · ~3 km dal centro",
+    lat: 45.6541367, lng: 11.9050716,
+    osmUrl: "https://www.openstreetmap.org/way/256992149",
+    immagini: [],
+    storia: "Nella frazione di Treville, immersa nella campagna a sud-ovest della città, sopravvive uno degli scorci più antichi del territorio: la motta castrale, ciò che resta del castello eretto nell'XI secolo dalla potente famiglia guelfa dei Camposampiero.\n\nCoinvolto nelle guerre di Ezzelino III da Romano, il fortilizio passò più volte di mano finché, nel 1343, la Repubblica di Venezia ne ordinò la demolizione. Oggi rimane il caratteristico rialzo a tronco di cono — la “motta” su cui sorgeva il dongione — affiancato da un terrapieno: una rara testimonianza di fortificazione altomedievale in terra veneta.",
+    pratico: {
+      orari: "Area visibile dall'esterno (proprietà privata)",
+      costo: "Gratuito",
+      accesso: "Via San Francesco d'Assisi, Treville · ~3 km a sud-ovest del centro",
+      tip: "Una chicca fuori dai circuiti turistici: la motta è su proprietà privata, ma il caratteristico rialzo conico si riconosce bene dalla strada. Comoda da raggiungere in bici dal centro."
+    }
   }
 ];
 
@@ -811,8 +826,11 @@ luoghi.forEach((l, i) => {
   markers[l.id] = m;
 });
 
-const ALL_BOUNDS = L.latLngBounds(luoghi.map(l => [l.lat, l.lng])).pad(0.18);
-map.fitBounds(ALL_BOUNDS);
+/* luoghi fuori dal centro storico: inquadrati solo col tasto "inquadra tutto" */
+const FAR = new Set(["treville"]);
+const CORE_BOUNDS = L.latLngBounds(luoghi.filter(l => !FAR.has(l.id)).map(l => [l.lat, l.lng])).pad(0.18);
+const ALL_BOUNDS = L.latLngBounds(luoghi.map(l => [l.lat, l.lng])).pad(0.1);
+map.fitBounds(CORE_BOUNDS);
 
 /* ============================================================
    FILTRI + RICERCA + INDICE
@@ -980,12 +998,12 @@ function openSheet(id) {
   const p = l.pratico;
   let html = l.storia.split("\n\n").map(t => `<p class="text">${t}</p>`).join("");
 
-  const osmUrl = l.osmUrl || `https://www.openstreetmap.org/?mlat=${l.lat}&mlon=${l.lng}#map=18/${l.lat}/${l.lng}`;
   html += `<div class="actions">
       <a class="act primary" target="_blank" rel="noopener"
          href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}">➤ Indicazioni</a>
+      <a class="act ghost" target="_blank" rel="noopener"
+         href="https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}">🗺 Google Maps</a>
       <button class="act ghost" id="center-btn">◎ Mappa</button>
-      <a class="act ghost" target="_blank" rel="noopener" href="${osmUrl}">🗺 OSM</a>
     </div>`;
 
   html += `<div class="section"><div class="section-title">Informazioni pratiche</div><div class="grid">`;
