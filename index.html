@@ -4,8 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#1b1009" />
-  <title>Castelfranco Veneto · Mappa Turistica</title>
-  <meta name="description" content="Mappa interattiva del centro storico di Castelfranco Veneto: mura medievali, Giorgione, musei, chiese e parchi." />
+  <title>Castelfranco Veneto · Mappa Turistica Interattiva | Mura, Giorgione, Musei</title>
+  <meta name="description" content="Scopri Castelfranco Veneto con la mappa turistica interattiva: le mura medievali del 1195, il Duomo con la Pala di Giorgione, musei, chiese, parchi e itinerari a piedi o in bici. Orari, prezzi e indicazioni per ogni luogo." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://newscastelfrancoveneto-lab.github.io/CastelTourism/" />
+
+  <!-- Open Graph / social sharing -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Castelfranco Veneto · Mappa Turistica" />
+  <meta property="og:locale" content="it_IT" />
+  <meta property="og:url" content="https://newscastelfrancoveneto-lab.github.io/CastelTourism/" />
+  <meta property="og:title" content="Castelfranco Veneto · Mappa Turistica Interattiva" />
+  <meta property="og:description" content="Mura medievali, il Duomo con la Pala di Giorgione, musei, chiese e parchi: esplora il centro storico di Castelfranco Veneto con una mappa interattiva, orari e indicazioni per ogni luogo." />
+  <meta property="og:image" content="https://www.comune.castelfrancoveneto.tv.it/wp-content/uploads/2024/06/stemma_comune_castelfranco_veneto.png" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Castelfranco Veneto · Mappa Turistica Interattiva" />
+  <meta name="twitter:description" content="Mura medievali, Giorgione, musei, chiese e parchi: esplora Castelfranco Veneto con una mappa interattiva completa di orari e indicazioni." />
+  <meta name="twitter:image" content="https://www.comune.castelfrancoveneto.tv.it/wp-content/uploads/2024/06/stemma_comune_castelfranco_veneto.png" />
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%231b1009'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle' fill='%23e3b94e'%3E%E2%9A%9C%3C/text%3E%3C/svg%3E" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TouristInformationCenter",
+    "name": "Castelfranco Veneto · Mappa Turistica",
+    "description": "Mappa interattiva del centro storico di Castelfranco Veneto: mura medievali, Duomo con la Pala di Giorgione, musei, chiese e parchi.",
+    "url": "https://newscastelfrancoveneto-lab.github.io/CastelTourism/",
+    "areaServed": {
+      "@type": "City",
+      "name": "Castelfranco Veneto"
+    }
+  }
+  </script>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -752,40 +786,30 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
   maxZoom: 19
 }).addTo(map);
 
-/* mura: tracciato reale da Overpass (con fallback silenzioso) */
+/* mura: tracciato precaricato da OSM (file statico, niente dipendenza da Overpass a runtime) */
 async function caricaMura() {
-  const q = `[out:json][timeout:25];(way["historic"="city_wall"](45.668,11.922,45.677,11.932);way["barrier"="city_wall"](45.668,11.922,45.677,11.932);relation["historic"="city_wall"](45.668,11.922,45.677,11.932););(._;>;);out body;`;
   try {
-    const r = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: "data=" + encodeURIComponent(q) });
-    const data = await r.json();
-    const nodes = {};
-    data.elements.filter(e => e.type === "node").forEach(n => nodes[n.id] = [n.lat, n.lon]);
-    data.elements.filter(e => e.type === "way").forEach(w => {
-      const c = w.nodes.map(id => nodes[id]).filter(Boolean);
-      if (c.length < 2) return;
+    const r = await fetch("mura.json");
+    const lines = await r.json();
+    lines.forEach(c => {
       L.polyline(c, { color: "#3d2a00", weight: 13, opacity: 0.22, lineCap: "round", lineJoin: "round" }).addTo(map);
       L.polyline(c, { color: "#8b6914", weight: 6, opacity: 0.9, lineCap: "round", lineJoin: "round" }).addTo(map);
       L.polyline(c, { color: "#f0c040", weight: 2, opacity: 0.7, dashArray: "6,4", lineCap: "round" }).addTo(map);
     });
-  } catch (e) { console.warn("Overpass non raggiungibile:", e); }
+  } catch (e) { console.warn("Tracciato mura non disponibile:", e); }
 }
 caricaMura();
 
-/* sentiero degli ezzelini: tracciato reale da OSM relation 2247688 */
+/* sentiero degli ezzelini: tracciato precaricato da OSM relation 2247688 (file statico) */
 async function caricaSentieroEzzelini() {
-  const q = `[out:json][timeout:30];relation(2247688);(._;>;);out body;`;
   try {
-    const r = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: "data=" + encodeURIComponent(q) });
-    const data = await r.json();
-    const nodes = {};
-    data.elements.filter(e => e.type === "node").forEach(n => nodes[n.id] = [n.lat, n.lon]);
-    data.elements.filter(e => e.type === "way").forEach(w => {
-      const c = w.nodes.map(id => nodes[id]).filter(Boolean);
-      if (c.length < 2) return;
+    const r = await fetch("ezzelini.json");
+    const lines = await r.json();
+    lines.forEach(c => {
       L.polyline(c, { color: "#0d4a1a", weight: 6, opacity: 0.22, lineCap: "round", lineJoin: "round" }).addTo(map);
       L.polyline(c, { color: "#2e7d46", weight: 3, opacity: 0.88, dashArray: "12,7", lineCap: "round", lineJoin: "round" }).addTo(map);
     });
-  } catch(e) { console.warn("Overpass non raggiungibile (Sentiero Ezzelini):", e); }
+  } catch(e) { console.warn("Tracciato Sentiero Ezzelini non disponibile:", e); }
 }
 caricaSentieroEzzelini();
 
