@@ -786,32 +786,129 @@ L.tileLayer("https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
   maxZoom: 20
 }).addTo(map);
 
-/* mura: tracciato precaricato da OSM (file statico, niente dipendenza da Overpass a runtime) */
-async function caricaMura() {
-  try {
-    const r = await fetch("mura.json");
-    const lines = await r.json();
-    lines.forEach(c => {
-      L.polyline(c, { color: "#3d2a00", weight: 13, opacity: 0.22, lineCap: "round", lineJoin: "round" }).addTo(map);
-      L.polyline(c, { color: "#8b6914", weight: 6, opacity: 0.9, lineCap: "round", lineJoin: "round" }).addTo(map);
-      L.polyline(c, { color: "#f0c040", weight: 2, opacity: 0.7, dashArray: "6,4", lineCap: "round" }).addTo(map);
-    });
-  } catch (e) { console.warn("Tracciato mura non disponibile:", e); }
-}
-caricaMura();
+/* ============================================================
+   CARICAMENTO TRACCIATI OSM (mura + Sentiero degli Ezzelini)
+   ------------------------------------------------------------
+   Query Overpass in parallelo su più mirror pubblici (si tiene il
+   risultato con più elementi tra chi risponde, non il primo che
+   arriva: un mirror può rispondere in fretta ma con dati parziali).
+   Il risultato buono viene tenuto in localStorage per 24h, così le
+   visite successive non richiedono Overpass. Se in quel momento
+   tutti i mirror falliscono si usa la cache anche scaduta, e come
+   ultima rete di sicurezza un file GeoJSON statico incluso nel
+   repo (mura.json / ezzelini.json): a differenza della cache non
+   dipende dal browser del singolo visitatore, quindi la mappa
+   mostra sempre qualcosa anche al primo caricamento assoluto.
+   ============================================================ */
+const OSM_CACHE_KEY = "castelTourismOsmCache_v1";
+const OSM_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 ore
+const OVERPASS_MIRRORS = [
+  "https://overpass.openstreetmap.fr/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.monicz.dev/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
+  "https://z.overpass-api.de/api/interpreter"
+];
+const OVERPASS_TIMEOUT_MS = 20000;
 
-/* sentiero degli ezzelini: tracciato precaricato da OSM relation 2247688 (file statico) */
-async function caricaSentieroEzzelini() {
-  try {
-    const r = await fetch("ezzelini.json");
-    const lines = await r.json();
-    lines.forEach(c => {
-      L.polyline(c, { color: "#0d4a1a", weight: 6, opacity: 0.22, lineCap: "round", lineJoin: "round" }).addTo(map);
-      L.polyline(c, { color: "#2e7d46", weight: 3, opacity: 0.88, dashArray: "12,7", lineCap: "round", lineJoin: "round" }).addTo(map);
-    });
-  } catch(e) { console.warn("Tracciato Sentiero Ezzelini non disponibile:", e); }
+function readOsmCache() {
+  try { return JSON.parse(localStorage.getItem(OSM_CACHE_KEY)) || {}; }
+  catch (e) { return {}; }
 }
-caricaSentieroEzzelini();
+function writeOsmCache(cache) {
+  try { localStorage.setItem(OSM_CACHE_KEY, JSON.stringify(cache)); }
+  catch (e) { /* storage pieno o non disponibile: non bloccante */ }
+}
+
+/* interroga tutti i mirror in parallelo, aspetta chi risponde e tiene
+   il risultato con più elementi (più completo) tra chi ha avuto successo */
+function fetchOverpassBest(query) {
+  let best = null;
+  const requests = OVERPASS_MIRRORS.map(url =>
+    fetch(url, {
+      method: "POST",
+      body: "data=" + encodeURIComponent(query),
+      signal: AbortSignal.timeout(OVERPASS_TIMEOUT_MS)
+    })
+      .then(res => { if (!res.ok) throw new Error(url + ": HTTP " + res.status); return res.json(); })
+      .then(data => {
+        if (!best || (data.elements?.length || 0) > (best.elements?.length || 0)) best = data;
+        return data;
+      })
+  );
+  return Promise.allSettled(requests).then(settled => {
+    if (!best) throw new Error("Tutti i mirror Overpass hanno fallito: " + settled.map(s => s.reason?.message).join(" | "));
+    return best;
+  });
+}
+
+function overpassToLines(data) {
+  const nodes = {};
+  data.elements.filter(e => e.type === "node").forEach(n => nodes[n.id] = [n.lat, n.lon]);
+  const lines = [];
+  data.elements.filter(e => e.type === "way").forEach(w => {
+    const c = w.nodes.map(id => nodes[id]).filter(Boolean);
+    if (c.length >= 2) lines.push(c);
+  });
+  return lines;
+}
+
+/* orchestratore comune: cache fresca -> live multi-mirror (+ aggiorna cache)
+   -> cache scaduta -> file statico bundlato nel repo */
+async function caricaTracciato(groupKey, query, staticUrl, draw) {
+  const cache = readOsmCache();
+  const cached = cache[groupKey];
+  if (cached && (Date.now() - cached.ts) < OSM_CACHE_TTL_MS) {
+    draw(cached.lines);
+    return;
+  }
+  try {
+    const data = await fetchOverpassBest(query);
+    const lines = overpassToLines(data);
+    if (!lines.length) throw new Error("Nessuna geometria valida nella risposta");
+    draw(lines);
+    cache[groupKey] = { ts: Date.now(), lines };
+    writeOsmCache(cache);
+    return;
+  } catch (e) {
+    console.warn(`[${groupKey}] mirror Overpass falliti, provo la cache/il file statico:`, e);
+  }
+  if (cached) { draw(cached.lines); return; }
+  try {
+    const r = await fetch(staticUrl);
+    draw(await r.json());
+  } catch (e) {
+    console.warn(`[${groupKey}] anche il file statico non è disponibile:`, e);
+  }
+}
+
+function disegnaMura(lines) {
+  lines.forEach(c => {
+    L.polyline(c, { color: "#3d2a00", weight: 13, opacity: 0.22, lineCap: "round", lineJoin: "round" }).addTo(map);
+    L.polyline(c, { color: "#8b6914", weight: 6, opacity: 0.9, lineCap: "round", lineJoin: "round" }).addTo(map);
+    L.polyline(c, { color: "#f0c040", weight: 2, opacity: 0.7, dashArray: "6,4", lineCap: "round" }).addTo(map);
+  });
+}
+function disegnaSentieroEzzelini(lines) {
+  lines.forEach(c => {
+    L.polyline(c, { color: "#0d4a1a", weight: 6, opacity: 0.22, lineCap: "round", lineJoin: "round" }).addTo(map);
+    L.polyline(c, { color: "#2e7d46", weight: 3, opacity: 0.88, dashArray: "12,7", lineCap: "round", lineJoin: "round" }).addTo(map);
+  });
+}
+
+caricaTracciato(
+  "mura",
+  `[out:json][timeout:25];(way["historic"="city_wall"](45.668,11.922,45.677,11.932);way["barrier"="city_wall"](45.668,11.922,45.677,11.932);relation["historic"="city_wall"](45.668,11.922,45.677,11.932););(._;>;);out body;`,
+  "mura.json",
+  disegnaMura
+);
+caricaTracciato(
+  "ezzelini",
+  `[out:json][timeout:30];relation(2247688);(._;>;);out body;`,
+  "ezzelini.json",
+  disegnaSentieroEzzelini
+);
 
 /* gradienti dei pin, uno per categoria */
 const defs = document.getElementById("pin-defs");
